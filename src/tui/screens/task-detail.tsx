@@ -38,6 +38,13 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
     }
   }, [adapter, task]);
 
+  // Set initial panel based on available content
+  useEffect(() => {
+    if (sections.length === 0 && activePanel === 'sections') {
+      setActivePanel('dependencies');
+    }
+  }, [sections, activePanel]);
+
   // Handle keyboard navigation
   useInput((input, key) => {
     if (key.escape) {
@@ -47,11 +54,12 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
       refresh();
     }
     if (key.tab) {
-      // Cycle through panels
+      // Cycle through panels (skip sections if none exist)
       setActivePanel(current => {
         if (current === 'sections') return 'dependencies';
         if (current === 'dependencies') return 'status';
-        return 'sections';
+        // From status, go to sections only if they exist
+        return sections.length > 0 ? 'sections' : 'dependencies';
       });
     }
   });
@@ -116,12 +124,12 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <Text dimColor>{timeAgo(new Date(task.modifiedAt))}</Text>
       </Box>
 
-      {/* Task Summary */}
+      {/* Task Details (summary) */}
       {task.summary && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text bold>Summary</Text>
+          <Text bold>Details</Text>
           <Box marginLeft={1}>
-            <Text>{task.summary}</Text>
+            <Text wrap="wrap">{task.summary}</Text>
           </Box>
         </Box>
       )}
@@ -136,20 +144,22 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         </Box>
       )}
 
-      {/* Sections Panel */}
-      <Box flexDirection="column" marginBottom={1}>
-        <Box marginBottom={0}>
-          <Text bold={activePanel === 'sections'} dimColor={activePanel !== 'sections'}>
-            Sections
-          </Text>
+      {/* Sections Panel - only show if there are sections */}
+      {sections.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Box marginBottom={0}>
+            <Text bold={activePanel === 'sections'} dimColor={activePanel !== 'sections'}>
+              Sections
+            </Text>
+          </Box>
+          <SectionList
+            sections={sections}
+            selectedIndex={selectedSectionIndex}
+            onSelectedIndexChange={setSelectedSectionIndex}
+            isActive={activePanel === 'sections'}
+          />
         </Box>
-        <SectionList
-          sections={sections}
-          selectedIndex={selectedSectionIndex}
-          onSelectedIndexChange={setSelectedSectionIndex}
-          isActive={activePanel === 'sections'}
-        />
-      </Box>
+      )}
 
       {/* Dependencies Panel */}
       <Box flexDirection="column" marginBottom={1}>
