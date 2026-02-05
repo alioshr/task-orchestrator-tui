@@ -8,6 +8,7 @@ import { Footer } from './components/footer';
 import { Dashboard } from './screens/dashboard';
 import { ProjectView } from './screens/project-view';
 import { TaskDetail } from './screens/task-detail';
+import { KanbanView } from './screens/kanban-view';
 
 export function App() {
   // Setup
@@ -15,7 +16,7 @@ export function App() {
   const adapter = useMemo(() => new DirectAdapter(), []);
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
 
@@ -24,11 +25,19 @@ export function App() {
     if (input === 'q') {
       exit();
     }
+    // Toggle between project tree view and kanban board
+    if (input === 'b' && (screen === 'project' || screen === 'kanban')) {
+      setScreen(screen === 'project' ? 'kanban' : 'project');
+    }
     // Escape key to go back
     if (key.escape) {
       if (screen === 'task') {
+        // Go back to project view (default for simplicity)
         setScreen('project');
         setTaskId(null);
+      } else if (screen === 'kanban') {
+        setScreen('dashboard');
+        setProjectId(null);
       } else if (screen === 'project') {
         setScreen('dashboard');
         setProjectId(null);
@@ -41,7 +50,17 @@ export function App() {
     { key: 'j/k', label: 'Navigate' },
     { key: 'Enter', label: 'Select' },
     { key: 'q', label: 'Quit' },
-    ...(screen === 'project' ? [{ key: 'r', label: 'Refresh' }, { key: 'Esc', label: 'Back' }] : []),
+    ...(screen === 'project' ? [
+      { key: 'b', label: 'Board View' },
+      { key: 'r', label: 'Refresh' },
+      { key: 'Esc', label: 'Back' }
+    ] : []),
+    ...(screen === 'kanban' ? [
+      { key: 'h/l', label: 'Columns' },
+      { key: 'b', label: 'Tree View' },
+      { key: 'm', label: 'Move Task' },
+      { key: 'Esc', label: 'Back' }
+    ] : []),
     ...(screen === 'task' ? [
       { key: 'Tab', label: 'Switch Panel' },
       { key: 'r', label: 'Refresh' },
@@ -65,6 +84,19 @@ export function App() {
             )}
             {screen === 'project' && projectId && (
               <ProjectView
+                projectId={projectId}
+                onSelectTask={(id) => {
+                  setTaskId(id);
+                  setScreen('task');
+                }}
+                onBack={() => {
+                  setScreen('dashboard');
+                  setProjectId(null);
+                }}
+              />
+            )}
+            {screen === 'kanban' && projectId && (
+              <KanbanView
                 projectId={projectId}
                 onSelectTask={(id) => {
                   setTaskId(id);

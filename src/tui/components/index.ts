@@ -7,3 +7,6 @@ export { TreeView, type TreeRow } from './tree-view';
 export { SectionList, type SectionListProps } from './section-list';
 export { StatusActions } from './status-actions';
 export { DependencyList } from './dependency-list';
+export { KanbanCard, type KanbanCardProps } from './kanban-card';
+export { KanbanColumn } from './kanban-column';
+export { KanbanBoard } from './kanban-board';
