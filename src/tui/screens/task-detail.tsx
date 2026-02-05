@@ -116,6 +116,26 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <Text dimColor>{timeAgo(new Date(task.modifiedAt))}</Text>
       </Box>
 
+      {/* Task Summary */}
+      {task.summary && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold>Summary</Text>
+          <Box marginLeft={1}>
+            <Text>{task.summary}</Text>
+          </Box>
+        </Box>
+      )}
+
+      {/* Task Description */}
+      {task.description && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold>Description</Text>
+          <Box marginLeft={1}>
+            <Text wrap="wrap">{task.description}</Text>
+          </Box>
+        </Box>
+      )}
+
       {/* Sections Panel */}
       <Box flexDirection="column" marginBottom={1}>
         <Box marginBottom={0}>
