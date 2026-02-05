@@ -1,0 +1,121 @@
+import type { Task, Feature, Priority } from 'task-orchestrator-bun/src/domain/types';
+
+/**
+ * Navigation screens for the TUI
+ */
+export enum Screen {
+  Dashboard = 'dashboard',
+  ProjectView = 'project-view',
+  FeatureView = 'feature-view',
+  TaskDetail = 'task-detail',
+  Search = 'search',
+  Help = 'help',
+}
+
+/**
+ * Screen parameters for navigation
+ */
+export interface ScreenParams {
+  [Screen.Dashboard]: Record<string, never>;
+  [Screen.ProjectView]: { projectId: string };
+  [Screen.FeatureView]: { featureId: string };
+  [Screen.TaskDetail]: { taskId: string };
+  [Screen.Search]: { query?: string };
+  [Screen.Help]: Record<string, never>;
+}
+
+/**
+ * Navigation state with screen stack
+ */
+export interface NavigationState {
+  stack: Array<{
+    screen: Screen;
+    params: Record<string, unknown>;
+  }>;
+}
+
+/**
+ * Keyboard shortcut definition
+ */
+export interface Shortcut {
+  key: string;
+  label: string;
+  action: () => void;
+}
+
+/**
+ * Generic tree node for hierarchical data
+ */
+export interface TreeNode<T> {
+  data: T;
+  children: TreeNode<T>[];
+  expanded: boolean;
+  level: number;
+}
+
+/**
+ * Feature with nested tasks for tree view
+ */
+export interface FeatureWithTasks extends Feature {
+  tasks: Task[];
+}
+
+/**
+ * Kanban board column definition
+ */
+export interface BoardColumn {
+  id: string;
+  title: string;
+  status: string;
+  tasks: Task[];
+}
+
+/**
+ * Search result types
+ */
+export interface SearchResults {
+  projects: Array<{ id: string; name: string; summary: string }>;
+  features: Array<{ id: string; name: string; summary: string; projectId?: string }>;
+  tasks: Array<{ id: string; title: string; summary: string; projectId?: string; featureId?: string }>;
+}
+
+/**
+ * Dependency information for a task
+ */
+export interface DependencyInfo {
+  blockedBy: Task[];
+  blocks: Task[];
+}
+
+/**
+ * Project overview data
+ */
+export interface ProjectOverview {
+  project: {
+    id: string;
+    name: string;
+    summary: string;
+    status: string;
+  };
+  taskCounts: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+}
+
+/**
+ * Feature overview data
+ */
+export interface FeatureOverview {
+  feature: {
+    id: string;
+    name: string;
+    summary: string;
+    status: string;
+    priority: Priority;
+  };
+  taskCounts: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+}
