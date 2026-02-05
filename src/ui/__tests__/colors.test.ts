@@ -16,7 +16,7 @@ describe('color utilities', () => {
   describe('getStatusColor', () => {
     test('returns correct color for task status (dark)', () => {
       expect(getStatusColor('IN_PROGRESS', darkTheme)).toBe('#4da6ff');
-      expect(getStatusColor('COMPLETED', darkTheme)).toBe('#66ff66');
+      expect(getStatusColor('COMPLETED', darkTheme)).toBe('#4ade80');
       expect(getStatusColor('BLOCKED', darkTheme)).toBe('#ff6666');
     });
 
@@ -59,7 +59,7 @@ describe('color utilities', () => {
 
   describe('getSemanticColor', () => {
     test('returns semantic colors (dark)', () => {
-      expect(getSemanticColor('success', darkTheme)).toBe('#66ff66');
+      expect(getSemanticColor('success', darkTheme)).toBe('#4ade80');
       expect(getSemanticColor('warning', darkTheme)).toBe('#ffd93d');
       expect(getSemanticColor('error', darkTheme)).toBe('#ff6b6b');
       expect(getSemanticColor('info', darkTheme)).toBe('#4da6ff');

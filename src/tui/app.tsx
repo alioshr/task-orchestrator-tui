@@ -7,6 +7,7 @@ import { Header } from './components/header';
 import { Footer } from './components/footer';
 import { Dashboard } from './screens/dashboard';
 import { ProjectView } from './screens/project-view';
+import { TaskDetail } from './screens/task-detail';
 
 export function App() {
   // Setup
@@ -14,8 +15,9 @@ export function App() {
   const adapter = useMemo(() => new DirectAdapter(), []);
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
 
   // Global keyboard handling
   useInput((input, key) => {
@@ -23,9 +25,14 @@ export function App() {
       exit();
     }
     // Escape key to go back
-    if (key.escape && screen === 'project') {
-      setScreen('dashboard');
-      setProjectId(null);
+    if (key.escape) {
+      if (screen === 'task') {
+        setScreen('project');
+        setTaskId(null);
+      } else if (screen === 'project') {
+        setScreen('dashboard');
+        setProjectId(null);
+      }
     }
   });
 
@@ -35,6 +42,11 @@ export function App() {
     { key: 'Enter', label: 'Select' },
     { key: 'q', label: 'Quit' },
     ...(screen === 'project' ? [{ key: 'r', label: 'Refresh' }, { key: 'Esc', label: 'Back' }] : []),
+    ...(screen === 'task' ? [
+      { key: 'Tab', label: 'Switch Panel' },
+      { key: 'r', label: 'Refresh' },
+      { key: 'Esc', label: 'Back' }
+    ] : []),
   ];
 
   return (
@@ -54,13 +66,26 @@ export function App() {
             {screen === 'project' && projectId && (
               <ProjectView
                 projectId={projectId}
-                onSelectTask={(taskId) => {
-                  // Will navigate to task detail in Wave 4
-                  console.log('Task selected:', taskId);
+                onSelectTask={(id) => {
+                  setTaskId(id);
+                  setScreen('task');
                 }}
                 onBack={() => {
                   setScreen('dashboard');
                   setProjectId(null);
+                }}
+              />
+            )}
+            {screen === 'task' && taskId && (
+              <TaskDetail
+                taskId={taskId}
+                onSelectTask={(id) => {
+                  setTaskId(id);
+                  // Stay on task screen, just change taskId
+                }}
+                onBack={() => {
+                  setScreen('project');
+                  setTaskId(null);
                 }}
               />
             )}
