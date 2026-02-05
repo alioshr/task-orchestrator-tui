@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run src/tui/index.tsx",
-    "tui": "bun run src/tui/index.tsx",
+    "start": "DATABASE_PATH=$PWD/../orchestrator-db/tasks.db bun run src/tui/index.tsx",
+    "tui": "DATABASE_PATH=$PWD/../orchestrator-db/tasks.db bun run src/tui/index.tsx",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

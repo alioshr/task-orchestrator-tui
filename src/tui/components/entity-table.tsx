@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
-import { useTheme } from '../../ui/context/theme-context';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -28,8 +27,6 @@ export function EntityTable<T>({
   isActive = true,
   getRowKey,
 }: EntityTableProps<T>) {
-  const { theme } = useTheme();
-
   useInput((input, key) => {
     if (!isActive || data.length === 0) return;
 
@@ -77,7 +74,7 @@ export function EntityTable<T>({
       <Box>
         {columns.map((column) => (
           <Box key={String(column.key)} width={column.width} marginRight={1}>
-            <Text bold color={theme.colors.foreground}>
+            <Text bold dimColor>
               {column.label}
             </Text>
           </Box>
@@ -90,13 +87,12 @@ export function EntityTable<T>({
         const rowKey = rowKeyFn(row, rowIndex);
 
         return (
-          <Box
-            key={rowKey}
-            backgroundColor={isSelected ? theme.colors.selection : undefined}
-          >
+          <Box key={rowKey}>
             {columns.map((column) => (
               <Box key={`${rowKey}-${String(column.key)}`} width={column.width} marginRight={1}>
-                <Text>{renderCellValue(column, row)}</Text>
+                <Text inverse={isSelected} bold={isSelected}>
+                  {renderCellValue(column, row)}
+                </Text>
               </Box>
             ))}
           </Box>

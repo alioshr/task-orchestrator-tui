@@ -42,12 +42,12 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     {
       key: 'name',
       label: 'Name',
-      width: 30,
+      width: 50,
     },
     {
       key: 'status',
       label: 'Status',
-      width: 15,
+      width: 20,
       render: (_value: unknown, row: Project) => (
         <StatusBadge status={row.status} />
       ),
@@ -55,13 +55,13 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     {
       key: 'tasks',
       label: 'Tasks',
-      width: 12,
+      width: 15,
       render: () => '-', // Will be enhanced when we add overview data
     },
     {
       key: 'modifiedAt',
       label: 'Modified',
-      width: 12,
+      width: 15,
       render: (_value: unknown, row: Project) => timeAgo(row.modifiedAt),
     },
   ];
