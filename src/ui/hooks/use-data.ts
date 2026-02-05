@@ -4,7 +4,53 @@ import type { Project, Task, Section, EntityType } from 'task-orchestrator-bun/s
 import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo } from '../lib/types';
 
 /**
+ * Task counts structure
+ */
+export interface TaskCounts {
+  total: number;
+  completed: number;
+}
+
+/**
+ * Calculate task counts from an array of tasks
+ */
+export function calculateTaskCounts(tasks: Task[]): TaskCounts {
+  return {
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === 'COMPLETED').length,
+  };
+}
+
+/**
+ * Group tasks by project ID and calculate counts for each
+ */
+export function calculateTaskCountsByProject(tasks: Task[]): Map<string, TaskCounts> {
+  const countsByProject = new Map<string, TaskCounts>();
+
+  for (const task of tasks) {
+    if (task.projectId) {
+      const counts = countsByProject.get(task.projectId) || { total: 0, completed: 0 };
+      counts.total++;
+      if (task.status === 'COMPLETED') {
+        counts.completed++;
+      }
+      countsByProject.set(task.projectId, counts);
+    }
+  }
+
+  return countsByProject;
+}
+
+/**
+ * Project with task count information for dashboard display
+ */
+export interface ProjectWithCounts extends Project {
+  taskCounts: TaskCounts;
+}
+
+/**
  * Hook for fetching and managing the list of projects for the dashboard.
+ * Includes task counts for each project.
  *
  * @returns Project list state with loading/error states and refresh function
  *
@@ -15,7 +61,7 @@ import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo }
  */
 export function useProjects() {
   const { adapter } = useAdapter();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,14 +69,30 @@ export function useProjects() {
     setLoading(true);
     setError(null);
 
-    const result = await adapter.getProjects();
+    // Fetch projects and all tasks in parallel
+    const [projectsResult, tasksResult] = await Promise.all([
+      adapter.getProjects(),
+      adapter.getTasks({ limit: 1000 }), // Get all tasks to count by project
+    ]);
 
-    if (result.success) {
-      setProjects(result.data);
-    } else {
-      setError(result.error);
+    if (!projectsResult.success) {
+      setError(projectsResult.error);
+      setLoading(false);
+      return;
     }
 
+    // Build task counts by project using shared utility
+    const taskCountsByProject = tasksResult.success
+      ? calculateTaskCountsByProject(tasksResult.data)
+      : new Map<string, TaskCounts>();
+
+    // Merge task counts into projects
+    const projectsWithCounts: ProjectWithCounts[] = projectsResult.data.map(project => ({
+      ...project,
+      taskCounts: taskCountsByProject.get(project.id) || { total: 0, completed: 0 },
+    }));
+
+    setProjects(projectsWithCounts);
     setLoading(false);
   }, [adapter]);
 
@@ -107,17 +169,19 @@ export function useProjectOverview(id: string) {
  * Also includes unassigned tasks (tasks without a feature).
  *
  * @param projectId - The project ID
- * @returns Features with nested tasks, unassigned tasks, loading/error states, and refresh function
+ * @returns Project, features with nested tasks, unassigned tasks, task counts, loading/error states, and refresh function
  *
  * @example
  * ```tsx
- * const { features, unassignedTasks, loading, error, refresh } = useProjectTree('proj-123');
+ * const { project, features, unassignedTasks, taskCounts, loading, error, refresh } = useProjectTree('proj-123');
  * ```
  */
 export function useProjectTree(projectId: string) {
   const { adapter } = useAdapter();
+  const [project, setProject] = useState<Project | null>(null);
   const [features, setFeatures] = useState<FeatureWithTasks[]>([]);
   const [unassignedTasks, setUnassignedTasks] = useState<Task[]>([]);
+  const [taskCounts, setTaskCounts] = useState<TaskCounts>({ total: 0, completed: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,10 +189,17 @@ export function useProjectTree(projectId: string) {
     setLoading(true);
     setError(null);
 
-    const [featuresResult, tasksResult] = await Promise.all([
+    const [projectResult, featuresResult, tasksResult] = await Promise.all([
+      adapter.getProject(projectId),
       adapter.getFeatures({ projectId }),
       adapter.getTasks({ projectId }),
     ]);
+
+    if (!projectResult.success) {
+      setError(projectResult.error);
+      setLoading(false);
+      return;
+    }
 
     if (!featuresResult.success) {
       setError(featuresResult.error);
@@ -142,6 +213,7 @@ export function useProjectTree(projectId: string) {
       return;
     }
 
+    const projectData = projectResult.data;
     const allFeatures = featuresResult.data;
     const allTasks = tasksResult.data;
 
@@ -154,8 +226,10 @@ export function useProjectTree(projectId: string) {
     // Find unassigned tasks (no featureId)
     const unassigned = allTasks.filter((task) => !task.featureId);
 
+    setProject(projectData);
     setFeatures(featuresWithTasks);
     setUnassignedTasks(unassigned);
+    setTaskCounts(calculateTaskCounts(allTasks));
     setLoading(false);
   }, [adapter, projectId]);
 
@@ -164,8 +238,10 @@ export function useProjectTree(projectId: string) {
   }, [loadProjectTree]);
 
   return {
+    project,
     features,
     unassignedTasks,
+    taskCounts,
     loading,
     error,
     refresh: loadProjectTree,

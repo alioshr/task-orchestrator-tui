@@ -4,7 +4,7 @@ import { useProjects } from '../../ui/hooks/use-data';
 import { EntityTable } from '../components/entity-table';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
-import type { Project } from 'task-orchestrator-bun/src/domain/types';
+import type { ProjectWithCounts } from '../../ui/hooks/use-data';
 
 interface DashboardProps {
   onSelectProject: (projectId: string) => void;
@@ -48,7 +48,7 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       key: 'status',
       label: 'Status',
       width: 20,
-      render: (_value: unknown, row: Project) => (
+      render: (_value: unknown, row: ProjectWithCounts) => (
         <StatusBadge status={row.status} />
       ),
     },
@@ -56,13 +56,14 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       key: 'tasks',
       label: 'Tasks',
       width: 15,
-      render: () => '-', // Will be enhanced when we add overview data
+      render: (_value: unknown, row: ProjectWithCounts) =>
+        `${row.taskCounts.completed}/${row.taskCounts.total}`,
     },
     {
       key: 'modifiedAt',
       label: 'Modified',
       width: 15,
-      render: (_value: unknown, row: Project) => timeAgo(row.modifiedAt),
+      render: (_value: unknown, row: ProjectWithCounts) => timeAgo(row.modifiedAt),
     },
   ];
 

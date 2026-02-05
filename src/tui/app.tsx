@@ -6,6 +6,7 @@ import { DirectAdapter } from '../ui/adapters/direct';
 import { Header } from './components/header';
 import { Footer } from './components/footer';
 import { Dashboard } from './screens/dashboard';
+import { ProjectView } from './screens/project-view';
 
 export function App() {
   // Setup
@@ -33,7 +34,7 @@ export function App() {
     { key: 'j/k', label: 'Navigate' },
     { key: 'Enter', label: 'Select' },
     { key: 'q', label: 'Quit' },
-    ...(screen === 'project' ? [{ key: 'Esc', label: 'Back' }] : []),
+    ...(screen === 'project' ? [{ key: 'r', label: 'Refresh' }, { key: 'Esc', label: 'Back' }] : []),
   ];
 
   return (
@@ -50,10 +51,18 @@ export function App() {
                 }}
               />
             )}
-            {screen === 'project' && (
-              <Box paddingX={1} paddingY={1}>
-                <Text>Project View - Coming in Wave 3 (ID: {projectId})</Text>
-              </Box>
+            {screen === 'project' && projectId && (
+              <ProjectView
+                projectId={projectId}
+                onSelectTask={(taskId) => {
+                  // Will navigate to task detail in Wave 4
+                  console.log('Task selected:', taskId);
+                }}
+                onBack={() => {
+                  setScreen('dashboard');
+                  setProjectId(null);
+                }}
+              />
             )}
           </Box>
           <Footer shortcuts={shortcuts} />

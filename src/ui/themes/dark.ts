@@ -17,13 +17,13 @@ export const darkTheme: Theme = {
       IN_DEVELOPMENT: '#4da6ff',
       ON_HOLD: '#cc9966',
       CANCELLED: '#808080',
-      COMPLETED: '#66ff66',
+      COMPLETED: '#4ade80',
       ARCHIVED: '#555555',
 
       // Feature/Task shared
       TESTING: '#66cccc',
       BLOCKED: '#ff6666',
-      DEPLOYED: '#66ff99',
+      DEPLOYED: '#34d399',
 
       // Feature only
       DRAFT: '#6b6b8d',
@@ -49,7 +49,7 @@ export const darkTheme: Theme = {
     },
 
     // Semantic colors
-    success: '#66ff66',
+    success: '#4ade80',
     warning: '#ffd93d',
     error: '#ff6b6b',
     info: '#4da6ff',
