@@ -7,10 +7,11 @@ import { StatusBadge } from '../components/status-badge';
 interface ProjectViewProps {
   projectId: string;
   onSelectTask: (taskId: string) => void;
+  onSelectFeature: (featureId: string) => void;
   onBack: () => void;
 }
 
-export function ProjectView({ projectId, onSelectTask, onBack }: ProjectViewProps) {
+export function ProjectView({ projectId, onSelectTask, onSelectFeature, onBack }: ProjectViewProps) {
   const { project, features, unassignedTasks, taskCounts, loading, error, refresh } = useProjectTree(projectId);
   const [expandedFeatures, setExpandedFeatures] = useState<Set<string>>(new Set());
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -60,6 +61,13 @@ export function ProjectView({ projectId, onSelectTask, onBack }: ProjectViewProp
     }
     if (input === 'r') {
       refresh();
+    }
+    // When on a feature row, 'f' opens feature detail
+    if (input === 'f') {
+      const currentRow = rows[selectedIndex];
+      if (currentRow?.type === 'feature') {
+        onSelectFeature(currentRow.feature.id);
+      }
     }
   });
 

@@ -9,6 +9,7 @@ import { Dashboard } from './screens/dashboard';
 import { ProjectView } from './screens/project-view';
 import { TaskDetail } from './screens/task-detail';
 import { KanbanView } from './screens/kanban-view';
+import { FeatureDetail } from './screens/feature-detail';
 
 export function App() {
   // Setup
@@ -16,9 +17,10 @@ export function App() {
   const adapter = useMemo(() => new DirectAdapter(), []);
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [featureId, setFeatureId] = useState<string | null>(null);
 
   // Global keyboard handling
   useInput((input, key) => {
@@ -31,7 +33,10 @@ export function App() {
     }
     // Escape key to go back
     if (key.escape) {
-      if (screen === 'task') {
+      if (screen === 'feature') {
+        setScreen('project');
+        setFeatureId(null);
+      } else if (screen === 'task') {
         // Go back to project view (default for simplicity)
         setScreen('project');
         setTaskId(null);
@@ -51,6 +56,7 @@ export function App() {
     { key: 'Enter', label: 'Select' },
     { key: 'q', label: 'Quit' },
     ...(screen === 'project' ? [
+      { key: 'f', label: 'Feature Info' },
       { key: 'b', label: 'Board View' },
       { key: 'r', label: 'Refresh' },
       { key: 'Esc', label: 'Back' }
@@ -63,6 +69,12 @@ export function App() {
     ] : []),
     ...(screen === 'task' ? [
       { key: 'Tab', label: 'Switch Panel' },
+      { key: 'r', label: 'Refresh' },
+      { key: 'Esc', label: 'Back' }
+    ] : []),
+    ...(screen === 'feature' ? [
+      { key: 'j/k', label: 'Navigate' },
+      { key: 'Enter', label: 'Open Task' },
       { key: 'r', label: 'Refresh' },
       { key: 'Esc', label: 'Back' }
     ] : []),
@@ -88,6 +100,10 @@ export function App() {
                 onSelectTask={(id) => {
                   setTaskId(id);
                   setScreen('task');
+                }}
+                onSelectFeature={(id) => {
+                  setFeatureId(id);
+                  setScreen('feature');
                 }}
                 onBack={() => {
                   setScreen('dashboard');
@@ -118,6 +134,19 @@ export function App() {
                 onBack={() => {
                   setScreen('project');
                   setTaskId(null);
+                }}
+              />
+            )}
+            {screen === 'feature' && featureId && (
+              <FeatureDetail
+                featureId={featureId}
+                onSelectTask={(id) => {
+                  setTaskId(id);
+                  setScreen('task');
+                }}
+                onBack={() => {
+                  setScreen('project');
+                  setFeatureId(null);
                 }}
               />
             )}

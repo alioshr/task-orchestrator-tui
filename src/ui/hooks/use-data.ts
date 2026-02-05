@@ -313,6 +313,67 @@ export function useTask(id: string) {
 }
 
 /**
+ * Hook for fetching a single feature with its tasks and sections.
+ *
+ * @param id - The feature ID
+ * @returns Feature, tasks, sections, loading/error states, and refresh function
+ *
+ * @example
+ * ```tsx
+ * const { feature, tasks, sections, loading, error, refresh } = useFeature('feat-123');
+ * ```
+ */
+export function useFeature(id: string) {
+  const { adapter } = useAdapter();
+  const [feature, setFeature] = useState<FeatureWithTasks | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadFeature = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const [featureResult, tasksResult, sectionsResult] = await Promise.all([
+      adapter.getFeature(id),
+      adapter.getTasks({ featureId: id }),
+      adapter.getSections('FEATURE' as EntityType, id),
+    ]);
+
+    if (featureResult.success) {
+      const featureWithTasks: FeatureWithTasks = {
+        ...featureResult.data,
+        tasks: tasksResult.success ? tasksResult.data : [],
+      };
+      setFeature(featureWithTasks);
+    } else {
+      setError(featureResult.error);
+    }
+
+    if (sectionsResult.success) {
+      setSections(sectionsResult.data);
+    } else if (!error) {
+      setError(sectionsResult.error);
+    }
+
+    setLoading(false);
+  }, [adapter, id, error]);
+
+  useEffect(() => {
+    loadFeature();
+  }, [loadFeature]);
+
+  return {
+    feature,
+    tasks: feature?.tasks || [],
+    sections,
+    loading,
+    error,
+    refresh: loadFeature,
+  };
+}
+
+/**
  * Hook for performing full-text search across all entities.
  * Use with useDebounce to avoid excessive API calls.
  *
