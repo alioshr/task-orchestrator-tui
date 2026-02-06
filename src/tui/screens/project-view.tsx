@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useProjectTree } from '../../ui/hooks/use-data';
 import { useAdapter } from '../../ui/context/adapter-context';
+import { useTheme } from '../../ui/context/theme-context';
 import { TreeView, type TreeRow } from '../components/tree-view';
 import { StatusBadge } from '../components/status-badge';
 import { ViewModeChips } from '../components/view-mode-chips';
@@ -29,6 +30,7 @@ interface ProjectViewProps {
 
 export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onToggleBoard, onBack }: ProjectViewProps) {
   const { adapter } = useAdapter();
+  const { theme } = useTheme();
   const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
   const [mode, setMode] = useState<'idle' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -234,7 +236,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
   }
 
   if (error) {
-    return <Box padding={1}><Text color="red">Error: {error}</Text></Box>;
+    return <Box padding={1}><Text color={theme.colors.danger}>Error: {error}</Text></Box>;
   }
 
   if (!project) {
@@ -473,7 +475,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
       ) : null}
 
       {mode === 'feature-status' ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} marginTop={1}>
           <Text bold>Set Feature Status</Text>
           {featureTransitions.length === 0 ? (
             <Text dimColor>No transitions available</Text>

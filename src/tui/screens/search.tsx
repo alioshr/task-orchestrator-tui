@@ -18,19 +18,6 @@ type SearchItem =
   | { kind: 'feature'; id: string; title: string; subtitle: string }
   | { kind: 'task'; id: string; title: string; subtitle: string };
 
-function kindColor(kind: SearchItem['kind']): string {
-  switch (kind) {
-    case 'project':
-      return 'cyan';
-    case 'feature':
-      return 'yellow';
-    case 'task':
-      return 'green';
-    default:
-      return 'white';
-  }
-}
-
 function countWrappedLines(text: string, width: number): number {
   const safeWidth = Math.max(1, width);
   return text.split('\n').reduce((sum, line) => {
@@ -233,8 +220,8 @@ export function SearchScreen({
               flexDirection="row"
             >
               <Box width={markerWidth}>
-                <Text color={isSelected ? theme.colors.highlight : theme.colors.muted} bold={isSelected}>
-                  {isSelected ? '>' : ' '}
+                <Text color={isSelected ? theme.colors.highlight : theme.colors.muted}>
+                  {isSelected ? '▎' : ' '}
                 </Text>
               </Box>
               <Box
@@ -244,10 +231,14 @@ export function SearchScreen({
                 width={cardWidth}
               >
                 <Box flexDirection="column">
-                  <Text color={isSelected ? theme.colors.highlight : kindColor(item.kind)} bold>
+                  <Text color={isSelected ? theme.colors.highlight : (
+                    item.kind === 'project' ? theme.colors.accent :
+                    item.kind === 'feature' ? theme.colors.warning :
+                    theme.colors.success
+                  )} bold>
                     {item.kind.toUpperCase()}
                   </Text>
-                  <Text bold={isSelected} inverse={isSelected}>
+                  <Text bold={isSelected}>
                     {item.title}
                   </Text>
                   <Text dimColor={!isSelected}>{item.subtitle}</Text>

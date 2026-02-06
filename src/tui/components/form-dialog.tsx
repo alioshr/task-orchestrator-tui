@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { useTheme } from '../../ui/context/theme-context';
 
 export interface FormField {
   key: string;
@@ -74,6 +75,8 @@ export function FormDialog({
   onCancel,
   isActive = true,
 }: FormDialogProps) {
+  const { theme } = useTheme();
+
   const initialValues = useMemo(() => {
     const values: Record<string, string> = {};
     for (const field of fields) {
@@ -256,7 +259,7 @@ export function FormDialog({
   }, { isActive });
 
   return (
-    <Box flexDirection="column" borderStyle="double" borderColor="cyan" paddingX={1} paddingY={0} marginY={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} paddingY={0} marginY={1}>
       <Text bold>{title}</Text>
       {description ? <Text dimColor>{description}</Text> : null}
       {fields.map((field, index) => {
@@ -271,11 +274,11 @@ export function FormDialog({
           <Box key={field.key} flexDirection="column" marginTop={1}>
             <Text bold={isActiveField}>
               {isActiveField ? '>' : ' '} {field.label}
-              {isMissing ? <Text color="yellow"> *</Text> : null}
+              {isMissing ? <Text color={theme.colors.warning}> *</Text> : null}
             </Text>
             <Box
               borderStyle={isActiveField ? 'double' : 'round'}
-              borderColor={isActiveField ? 'cyan' : 'gray'}
+              borderColor={isActiveField ? theme.colors.highlight : theme.colors.border}
               paddingX={1}
             >
               {isActiveField
@@ -295,7 +298,7 @@ export function FormDialog({
                       if (lineChars.length === 0) {
                         return (
                           <Text key={`${field.key}-line-${lineIndex}`}>
-                            <Text color="cyan" inverse> </Text>
+                            <Text color={theme.colors.accent} inverse> </Text>
                           </Text>
                         );
                       }
@@ -306,7 +309,7 @@ export function FormDialog({
                         return (
                           <Text key={`${field.key}-line-${lineIndex}`}>
                             {before}
-                            <Text color="cyan" inverse>{last}</Text>
+                            <Text color={theme.colors.accent} inverse>{last}</Text>
                           </Text>
                         );
                       }
@@ -317,7 +320,7 @@ export function FormDialog({
                       return (
                         <Text key={`${field.key}-line-${lineIndex}`}>
                           {before}
-                          <Text color="cyan" inverse>{current}</Text>
+                          <Text color={theme.colors.accent} inverse>{current}</Text>
                           {after}
                         </Text>
                       );

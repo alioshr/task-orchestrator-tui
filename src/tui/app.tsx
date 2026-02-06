@@ -54,6 +54,28 @@ export function App() {
     }
   });
 
+  // Compute breadcrumbs based on current screen
+  const breadcrumbs = useMemo(() => {
+    switch (screen) {
+      case 'dashboard':
+        return ['Dashboard'];
+      case 'project-detail':
+        return ['Dashboard', 'Project'];
+      case 'project':
+        return ['Dashboard', 'Project'];
+      case 'feature':
+        return ['Dashboard', 'Project', 'Feature'];
+      case 'task':
+        return ['Dashboard', 'Project', 'Task'];
+      case 'kanban':
+        return ['Dashboard', 'Project', 'Board'];
+      case 'search':
+        return ['Search'];
+      default:
+        return ['Dashboard'];
+    }
+  }, [screen]);
+
   // Shortcuts for footer
   const shortcuts =
     screen === 'search'
@@ -126,7 +148,7 @@ export function App() {
     <ThemeProvider>
       <AdapterProvider adapter={adapter}>
         <Box flexDirection="column" width="100%">
-          <Header />
+          <Header breadcrumbs={breadcrumbs} />
           <Box flexGrow={1} flexDirection="column">
             {screen === 'dashboard' && (
               <Dashboard

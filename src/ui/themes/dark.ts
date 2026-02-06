@@ -49,10 +49,12 @@ export const darkTheme: Theme = {
     },
 
     // Semantic colors
+    accent: '#4da6ff',
     success: '#4ade80',
     warning: '#ffd93d',
     error: '#ff6b6b',
-    info: '#4da6ff',
+    danger: '#ff6666',
+    info: '#66cccc',
 
     // Interactive colors
     selection: '#4a4a7a',

@@ -49,10 +49,12 @@ export const lightTheme: Theme = {
     },
 
     // Semantic colors
+    accent: '#2563eb',
     success: '#16a34a',
     warning: '#ca8a04',
     error: '#dc2626',
-    info: '#2563eb',
+    danger: '#dc2626',
+    info: '#0891b2',
 
     // Interactive colors
     selection: '#dbeafe',

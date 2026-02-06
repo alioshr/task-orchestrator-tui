@@ -79,6 +79,10 @@ export function EntityTable<T>({
     <Box flexDirection="column">
       {/* Header Row */}
       <Box>
+        {/* Gutter space for selection indicator */}
+        <Box width={2} marginRight={1}>
+          <Text> </Text>
+        </Box>
         {columns.map((column) => (
           <Box key={String(column.key)} width={column.width} marginRight={1}>
             <Text bold dimColor>
@@ -92,14 +96,18 @@ export function EntityTable<T>({
       {data.map((row, rowIndex) => {
         const isSelected = rowIndex === selectedIndex;
         const rowKey = rowKeyFn(row, rowIndex);
-        const rowBackgroundColor = isSelected ? theme.colors.selection : undefined;
-        const rowTextColor = isSelected ? theme.colors.foreground : undefined;
 
         return (
-          <Box key={rowKey} backgroundColor={rowBackgroundColor}>
+          <Box key={rowKey}>
+            {/* Selection gutter */}
+            <Box width={2} marginRight={1}>
+              <Text color={isSelected ? theme.colors.highlight : undefined}>
+                {isSelected ? '▎' : '  '}
+              </Text>
+            </Box>
             {columns.map((column) => (
               <Box key={`${rowKey}-${String(column.key)}`} width={column.width} marginRight={1}>
-                <Text color={rowTextColor} bold={isSelected}>
+                <Text bold={isSelected}>
                   {renderCellValue(column, row, isSelected)}
                 </Text>
               </Box>

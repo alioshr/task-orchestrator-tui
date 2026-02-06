@@ -189,13 +189,15 @@ export function TreeView({
 
   const renderRow = (row: TreeRow, index: number) => {
     const isSelected = index === selectedIndex;
-    const rowBackgroundColor = isSelected ? theme.colors.selection : undefined;
-    const rowTextColor = isSelected ? theme.colors.foreground : undefined;
 
     if (row.type === 'separator') {
       return (
-        <Box key={`separator-${index}`} width="100%" backgroundColor={rowBackgroundColor}>
-          <Text dimColor={!isSelected} color={rowTextColor} bold={isSelected}>
+        <Box key={`separator-${index}`} width="100%">
+          {/* Selection gutter */}
+          <Text color={isSelected ? theme.colors.highlight : undefined}>
+            {isSelected ? '▎' : '  '}
+          </Text>
+          <Text dimColor bold={isSelected}>
             ─────────── {row.label} ───────────
           </Text>
         </Box>
@@ -207,13 +209,25 @@ export function TreeView({
       const expandIcon = row.expanded ? '▼' : '▶';
       const indent = row.depth ? '  '.repeat(row.depth) : '';
       return (
-        <Box key={row.id} width="100%" backgroundColor={rowBackgroundColor}>
-          <Text color={rowTextColor} bold={isSelected}>
-            {indent}{expandable ? `${expandIcon} ` : ''}{row.label}
+        <Box key={row.id} width="100%">
+          {/* Selection gutter */}
+          <Text color={isSelected ? theme.colors.highlight : undefined}>
+            {isSelected ? '▎' : '  '}
+          </Text>
+          <Text color={theme.colors.muted}>
+            {indent}
+          </Text>
+          {expandable && (
+            <Text color={theme.colors.muted}>
+              {expandIcon}{' '}
+            </Text>
+          )}
+          <Text bold={isSelected}>
+            {row.label}
             {'  '}
           </Text>
-          <StatusBadge status={row.status} isSelected={isSelected} />
-          <Text color={rowTextColor} bold={isSelected}>
+          <StatusBadge status={row.status} />
+          <Text bold={isSelected}>
             {'  '}
             ({row.taskCount})
           </Text>
@@ -225,13 +239,22 @@ export function TreeView({
       const expandable = isRowExpandable(row);
       const expandIcon = row.expanded ? '▼' : '▶';
       return (
-        <Box key={row.feature.id} width="100%" backgroundColor={rowBackgroundColor}>
-          <Text color={rowTextColor} bold={isSelected}>
-            {expandable ? `${expandIcon} ` : ''}{row.feature.name}
+        <Box key={row.feature.id} width="100%">
+          {/* Selection gutter */}
+          <Text color={isSelected ? theme.colors.highlight : undefined}>
+            {isSelected ? '▎' : '  '}
+          </Text>
+          {expandable && (
+            <Text color={theme.colors.muted}>
+              {expandIcon}{' '}
+            </Text>
+          )}
+          <Text bold={isSelected}>
+            {row.feature.name}
             {'  '}
           </Text>
-          <StatusBadge status={row.feature.status} isSelected={isSelected} />
-          <Text color={rowTextColor} bold={isSelected}>
+          <StatusBadge status={row.feature.status} />
+          <Text bold={isSelected}>
             {'  '}
             {row.taskCount} tasks
           </Text>
@@ -243,14 +266,20 @@ export function TreeView({
       const indent = row.depth ? '  '.repeat(row.depth) : '';
       const treePrefix = row.isLast ? '└─ ' : '├─ ';
       return (
-        <Box key={row.task.id} width="100%" backgroundColor={rowBackgroundColor}>
-          <Text color={rowTextColor} bold={isSelected}>
+        <Box key={row.task.id} width="100%">
+          {/* Selection gutter */}
+          <Text color={isSelected ? theme.colors.highlight : undefined}>
+            {isSelected ? '▎' : '  '}
+          </Text>
+          <Text color={theme.colors.muted}>
             {indent}  {treePrefix}
+          </Text>
+          <Text bold={isSelected}>
             {row.task.title}
             {row.featureName !== undefined && (row.featureName ? `  [${row.featureName}]` : '  [unassigned]')}
             {'  '}
           </Text>
-          <PriorityBadge priority={row.task.priority} isSelected={isSelected} />
+          <PriorityBadge priority={row.task.priority} />
         </Box>
       );
     }

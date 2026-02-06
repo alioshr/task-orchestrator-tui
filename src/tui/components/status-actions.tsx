@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { StatusBadge } from './status-badge';
+import { useTheme } from '../../ui/context/theme-context';
 
 export interface StatusActionsProps {
   currentStatus: string;
@@ -17,6 +18,7 @@ export function StatusActions({
   isActive = true,
   loading = false,
 }: StatusActionsProps) {
+  const { theme } = useTheme();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useInput((input, key) => {
@@ -67,9 +69,11 @@ export function StatusActions({
                 const isSelected = index === selectedIndex;
                 return (
                   <Box key={status} marginLeft={2}>
-                    <Text inverse={isSelected} bold={isSelected}>
-                      {isSelected ? '→ ' : '  '}
-                      {status}
+                    <Text color={isSelected ? theme.colors.highlight : undefined}>
+                      {isSelected ? '▎' : '  '}
+                    </Text>
+                    <Text bold={isSelected}>
+                      {' '}{status}
                     </Text>
                   </Box>
                 );

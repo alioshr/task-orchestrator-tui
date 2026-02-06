@@ -7,6 +7,7 @@ import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
+import { useTheme } from '../../ui/context/theme-context';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -16,6 +17,7 @@ interface ProjectDetailProps {
 
 export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDetailProps) {
   const { adapter } = useAdapter();
+  const { theme } = useTheme();
   const [project, setProject] = useState<Project | null>(null);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +124,7 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
   if (error) {
     return (
       <Box padding={1}>
-        <Text color="red">Error: {error}</Text>
+        <Text color={theme.colors.danger}>Error: {error}</Text>
       </Box>
     );
   }
@@ -144,10 +146,20 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
         <StatusBadge status={project.status} />
       </Box>
 
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
+
       {/* Project Metadata */}
       <Box marginBottom={1}>
         <Text>Modified: </Text>
         <Text dimColor>{timeAgo(new Date(project.modifiedAt))}</Text>
+      </Box>
+
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
       </Box>
 
       {/* Project Details (summary) */}
@@ -157,6 +169,13 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
           <Text wrap="wrap">{project.summary}</Text>
         </Box>
       </Box>
+
+      {/* Divider */}
+      {project.description && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
+        </Box>
+      )}
 
       {/* Project Description */}
       {project.description && (
@@ -168,6 +187,11 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
         </Box>
       )}
 
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
+
       {/* Features List */}
       <Box flexDirection="column" marginBottom={1}>
         <Text bold>Features ({features.length})</Text>
@@ -175,19 +199,22 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
           <Box marginLeft={1}><EmptyState message="No features" hint="" /></Box>
         ) : (
           <Box flexDirection="column" marginLeft={1}>
-            {features.map((feature, index) => (
-              <Box key={feature.id}>
-                <Text color={index === selectedFeatureIndex ? 'cyan' : undefined}>
-                  {index === selectedFeatureIndex ? '>' : ' '}
-                </Text>
-                <Text> </Text>
-                <StatusBadge status={feature.status} />
-                <Text> </Text>
-                <Text color={index === selectedFeatureIndex ? 'cyan' : undefined}>
-                  {feature.name}
-                </Text>
-              </Box>
-            ))}
+            {features.map((feature, index) => {
+              const isSelected = index === selectedFeatureIndex;
+              return (
+                <Box key={feature.id}>
+                  <Text color={isSelected ? theme.colors.highlight : undefined}>
+                    {isSelected ? '▎' : '  '}
+                  </Text>
+                  <Text> </Text>
+                  <StatusBadge status={feature.status} />
+                  <Text> </Text>
+                  <Text bold={isSelected}>
+                    {feature.name}
+                  </Text>
+                </Box>
+              );
+            })}
           </Box>
         )}
       </Box>
@@ -226,16 +253,22 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
       ) : null}
 
       {mode === 'project-status' ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.accent} paddingX={1} marginTop={1}>
           <Text bold>Set Project Status</Text>
           {transitions.length === 0 ? (
             <Text dimColor>No transitions available</Text>
           ) : (
-            transitions.map((status, idx) => (
-              <Text key={status} inverse={idx === transitionIndex}>
-                {idx === transitionIndex ? '>' : ' '} {status}
-              </Text>
-            ))
+            transitions.map((status, idx) => {
+              const isSelected = idx === transitionIndex;
+              return (
+                <Box key={status}>
+                  <Text color={isSelected ? theme.colors.highlight : undefined}>
+                    {isSelected ? '▎' : '  '}
+                  </Text>
+                  <Text bold={isSelected}> {status}</Text>
+                </Box>
+              );
+            })
           )}
           <Text dimColor>Enter apply • Esc cancel</Text>
         </Box>

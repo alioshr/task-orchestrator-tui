@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
+import { useTheme } from '../../ui/context/theme-context';
 
 interface ConfirmDialogProps {
   title: string;
@@ -20,6 +21,8 @@ export function ConfirmDialog({
   onCancel,
   isActive = true,
 }: ConfirmDialogProps) {
+  const { theme } = useTheme();
+
   useInput((input, key) => {
     if (!isActive) return;
     if (key.return || input.toLowerCase() === 'y') {
@@ -32,7 +35,7 @@ export function ConfirmDialog({
   }, { isActive });
 
   return (
-    <Box flexDirection="column" borderStyle="double" borderColor="yellow" paddingX={1} paddingY={0} marginY={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} paddingY={0} marginY={1}>
       <Text bold>{title}</Text>
       <Text>{message}</Text>
       <Text dimColor>[Enter/Y] {confirmLabel}  [Esc/N] {cancelLabel}</Text>

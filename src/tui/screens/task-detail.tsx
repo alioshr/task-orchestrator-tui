@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useTask } from '../../ui/hooks/use-data';
 import { useAdapter } from '../../ui/context/adapter-context';
+import { useTheme } from '../../ui/context/theme-context';
 import { StatusBadge } from '../components/status-badge';
 import { PriorityBadge } from '../components/priority-badge';
 import { SectionList } from '../components/section-list';
@@ -24,6 +25,7 @@ type ActivePanel = 'sections' | 'dependencies' | 'status';
 export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
   const { task, sections, dependencies, loading, error, refresh } = useTask(taskId);
   const { adapter } = useAdapter();
+  const { theme } = useTheme();
   const [activePanel, setActivePanel] = useState<ActivePanel>('sections');
   const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -105,7 +107,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
   if (error) {
     return (
       <Box padding={1}>
-        <Text color="red">Error: {error}</Text>
+        <Text color={theme.colors.danger}>Error: {error}</Text>
       </Box>
     );
   }
@@ -127,6 +129,11 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <StatusBadge status={task.status} />
       </Box>
 
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
+
       {/* Task Metadata */}
       <Box marginBottom={1}>
         <Text>Priority: </Text>
@@ -135,6 +142,13 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <Text dimColor>{timeAgo(new Date(task.modifiedAt))}</Text>
       </Box>
 
+      {/* Divider */}
+      {task.summary && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
+        </Box>
+      )}
+
       {/* Task Details (summary) */}
       {task.summary && (
         <Box flexDirection="column" marginBottom={1}>
@@ -142,6 +156,13 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
           <Box marginLeft={1}>
             <Text wrap="wrap">{task.summary}</Text>
           </Box>
+        </Box>
+      )}
+
+      {/* Divider */}
+      {task.description && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
         </Box>
       )}
 
@@ -154,6 +175,11 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
           </Box>
         </Box>
       )}
+
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
 
       {/* Sections Panel - only show if there are sections */}
       {sections.length > 0 && (
@@ -202,7 +228,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         />
         {statusError && (
           <Box marginTop={1}>
-            <Text color="red">Error: {statusError}</Text>
+            <Text color={theme.colors.danger}>Error: {statusError}</Text>
           </Box>
         )}
       </Box>

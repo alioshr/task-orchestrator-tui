@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { useTheme } from '../../ui/context/theme-context';
 
 interface ErrorMessageProps {
   message: string;
@@ -14,6 +15,8 @@ export function ErrorMessage({
   timeoutMs = 4000,
   isActive = true,
 }: ErrorMessageProps) {
+  const { theme } = useTheme();
+
   useEffect(() => {
     if (!onDismiss || timeoutMs <= 0) return;
     const timer = setTimeout(onDismiss, timeoutMs);
@@ -28,8 +31,8 @@ export function ErrorMessage({
   }, { isActive });
 
   return (
-    <Box borderStyle="round" borderColor="red" paddingX={1} marginY={1}>
-      <Text color="red">
+    <Box borderStyle="round" borderColor={theme.colors.danger} paddingX={1} marginY={1}>
+      <Text color={theme.colors.danger}>
         ! {message}
       </Text>
     </Box>

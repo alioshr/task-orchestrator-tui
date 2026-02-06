@@ -36,8 +36,8 @@ export function KanbanCard({ task, isSelected, compact = false }: KanbanCardProp
     const title = truncateText(task.title, 30);
     return (
       <Box paddingX={1}>
-        <Text inverse={isSelected}>
-          {title}  <PriorityBadge priority={task.priority} isSelected={isSelected} />
+        <Text bold={isSelected}>
+          {title}  <PriorityBadge priority={task.priority} />
         </Text>
       </Box>
     );
@@ -53,15 +53,15 @@ export function KanbanCard({ task, isSelected, compact = false }: KanbanCardProp
       paddingX={1}
       flexDirection="column"
     >
-      <Text inverse={isSelected} bold>
+      <Text bold={isSelected}>
         {title}
       </Text>
       <Box gap={1}>
-        <PriorityBadge priority={task.priority} isSelected={isSelected} />
-        <Text inverse={isSelected} dimColor>
+        <PriorityBadge priority={task.priority} />
+        <Text bold={isSelected} dimColor>
           {task.priority}
         </Text>
-        <Text inverse={isSelected} dimColor>
+        <Text bold={isSelected} dimColor>
           [{featureLabel}]
         </Text>
       </Box>

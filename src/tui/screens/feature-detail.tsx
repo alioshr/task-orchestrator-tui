@@ -8,6 +8,7 @@ import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
+import { useTheme } from '../../ui/context/theme-context';
 
 interface FeatureDetailProps {
   featureId: string;
@@ -17,6 +18,7 @@ interface FeatureDetailProps {
 
 export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetailProps) {
   const { adapter } = useAdapter();
+  const { theme } = useTheme();
   const [feature, setFeature] = useState<Feature | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
   if (error) {
     return (
       <Box padding={1}>
-        <Text color="red">Error: {error}</Text>
+        <Text color={theme.colors.danger}>Error: {error}</Text>
       </Box>
     );
   }
@@ -148,12 +150,22 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         <StatusBadge status={feature.status} />
       </Box>
 
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
+
       {/* Feature Metadata */}
       <Box marginBottom={1}>
         <Text>Priority: </Text>
         <PriorityBadge priority={feature.priority} />
         <Text>  Modified: </Text>
         <Text dimColor>{timeAgo(new Date(feature.modifiedAt))}</Text>
+      </Box>
+
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
       </Box>
 
       {/* Feature Details (summary) */}
@@ -163,6 +175,13 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
           <Text wrap="wrap">{feature.summary}</Text>
         </Box>
       </Box>
+
+      {/* Divider */}
+      {feature.description && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
+        </Box>
+      )}
 
       {/* Feature Description */}
       {feature.description && (
@@ -174,6 +193,11 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         </Box>
       )}
 
+      {/* Divider */}
+      <Box marginY={0}>
+        <Text dimColor>{'─'.repeat(40)}</Text>
+      </Box>
+
       {/* Tasks List */}
       <Box flexDirection="column" marginBottom={1}>
         <Text bold>Tasks ({tasks.length})</Text>
@@ -181,19 +205,22 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
           <Box marginLeft={1}><EmptyState message="No tasks" hint="Press n to create one." /></Box>
         ) : (
           <Box flexDirection="column" marginLeft={1}>
-            {tasks.map((task, index) => (
-              <Box key={task.id}>
-                <Text color={index === selectedTaskIndex ? 'cyan' : undefined}>
-                  {index === selectedTaskIndex ? '>' : ' '}
-                </Text>
-                <Text> </Text>
-                <StatusBadge status={task.status} />
-                <Text> </Text>
-                <Text color={index === selectedTaskIndex ? 'cyan' : undefined}>
-                  {task.title}
-                </Text>
-              </Box>
-            ))}
+            {tasks.map((task, index) => {
+              const isSelected = index === selectedTaskIndex;
+              return (
+                <Box key={task.id}>
+                  <Text color={isSelected ? theme.colors.highlight : undefined}>
+                    {isSelected ? '▎' : '  '}
+                  </Text>
+                  <Text> </Text>
+                  <StatusBadge status={task.status} />
+                  <Text> </Text>
+                  <Text bold={isSelected}>
+                    {task.title}
+                  </Text>
+                </Box>
+              );
+            })}
           </Box>
         )}
       </Box>
@@ -263,16 +290,22 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
       ) : null}
 
       {mode === 'feature-status' ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.accent} paddingX={1} marginTop={1}>
           <Text bold>Set Feature Status</Text>
           {transitions.length === 0 ? (
             <Text dimColor>No transitions available</Text>
           ) : (
-            transitions.map((status, idx) => (
-              <Text key={status} inverse={idx === transitionIndex}>
-                {idx === transitionIndex ? '>' : ' '} {status}
-              </Text>
-            ))
+            transitions.map((status, idx) => {
+              const isSelected = idx === transitionIndex;
+              return (
+                <Box key={status}>
+                  <Text color={isSelected ? theme.colors.highlight : undefined}>
+                    {isSelected ? '▎' : '  '}
+                  </Text>
+                  <Text bold={isSelected}> {status}</Text>
+                </Box>
+              );
+            })
           )}
           <Text dimColor>Enter apply • Esc cancel</Text>
         </Box>

@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import type { Task } from 'task-orchestrator-bun/src/domain/types';
 import type { DependencyInfo } from '../../ui/lib/types';
 import { StatusBadge } from './status-badge';
+import { useTheme } from '../../ui/context/theme-context';
 
 interface DependencyListProps {
   dependencies: DependencyInfo | null;
@@ -15,6 +16,7 @@ export function DependencyList({
   onSelectTask,
   isActive = true,
 }: DependencyListProps) {
+  const { theme } = useTheme();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const allTasks: Task[] = [
@@ -57,7 +59,7 @@ export function DependencyList({
     <Box flexDirection="column">
       {hasBlockedBy && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text bold color="yellow">
+          <Text bold color={theme.colors.warning}>
             Blocked By:
           </Text>
           {dependencies.blockedBy.map((task) => {
@@ -66,14 +68,15 @@ export function DependencyList({
 
             return (
               <Box key={task.id} marginLeft={2}>
-                <Text inverse={isSelected} bold={isSelected}>
+                <Text color={isSelected ? theme.colors.highlight : undefined}>
+                  {isSelected ? '▎' : '  '}
+                </Text>
+                <Text bold={isSelected}>
                   ○{' '}
                 </Text>
-                <Text inverse={isSelected} bold={isSelected}>
-                  <StatusBadge status={task.status} isSelected={isSelected} />{' '}
-                </Text>
-                <Text inverse={isSelected} bold={isSelected}>
-                  {task.title}
+                <StatusBadge status={task.status} />
+                <Text bold={isSelected}>
+                  {' '}{task.title}
                 </Text>
               </Box>
             );
@@ -83,7 +86,7 @@ export function DependencyList({
 
       {hasBlocks && (
         <Box flexDirection="column">
-          <Text bold color="cyan">
+          <Text bold color={theme.colors.accent}>
             Blocks:
           </Text>
           {dependencies.blocks.map((task) => {
@@ -92,14 +95,15 @@ export function DependencyList({
 
             return (
               <Box key={task.id} marginLeft={2}>
-                <Text inverse={isSelected} bold={isSelected}>
+                <Text color={isSelected ? theme.colors.highlight : undefined}>
+                  {isSelected ? '▎' : '  '}
+                </Text>
+                <Text bold={isSelected}>
                   ○{' '}
                 </Text>
-                <Text inverse={isSelected} bold={isSelected}>
-                  <StatusBadge status={task.status} isSelected={isSelected} />{' '}
-                </Text>
-                <Text inverse={isSelected} bold={isSelected}>
-                  {task.title}
+                <StatusBadge status={task.status} />
+                <Text bold={isSelected}>
+                  {' '}{task.title}
                 </Text>
               </Box>
             );

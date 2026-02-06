@@ -49,9 +49,11 @@ export interface Theme {
     priority: Record<Priority, string>;
 
     // Semantic colors
+    accent: string;
     success: string;
     warning: string;
     error: string;
+    danger: string;
     info: string;
 
     // Interactive colors

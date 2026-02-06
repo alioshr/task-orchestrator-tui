@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useProjects } from '../../ui/hooks/use-data';
 import { useAdapter } from '../../ui/context/adapter-context';
+import { useTheme } from '../../ui/context/theme-context';
 import { EntityTable } from '../components/entity-table';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
@@ -22,6 +23,7 @@ interface DashboardProps {
 
 export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProject, onViewProject, onBack }: DashboardProps) {
   const { adapter } = useAdapter();
+  const { theme } = useTheme();
   const { projects, loading, error, refresh } = useProjects();
   const [mode, setMode] = useState<'idle' | 'create' | 'edit' | 'delete' | 'status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
         <Text>Loading projects...</Text>
       ) : null}
       {!loading && error && !localError ? (
-        <Text color="red">Error: {error}</Text>
+        <Text color={theme.colors.danger}>Error: {error}</Text>
       ) : null}
 
       {localError ? (
@@ -226,7 +228,7 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
       ) : null}
 
       {mode === 'status' && selectedProject ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} marginTop={1}>
           <Text bold>Set Project Status</Text>
           {statusTargets.length === 0 ? (
             <Text dimColor>No transitions available</Text>

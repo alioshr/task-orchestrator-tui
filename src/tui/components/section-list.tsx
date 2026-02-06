@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { Section } from 'task-orchestrator-bun/src/domain/types';
+import { useTheme } from '../../ui/context/theme-context';
 
 export interface SectionListProps {
   sections: Section[];
@@ -15,6 +16,7 @@ export function SectionList({
   onSelectedIndexChange,
   isActive = true,
 }: SectionListProps) {
+  const { theme } = useTheme();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(sections.map(s => s.id))
   );
@@ -63,7 +65,10 @@ export function SectionList({
           <Box key={section.id} flexDirection="column">
             {/* Section Header */}
             <Box>
-              <Text inverse={isSelected} bold dimColor={!isExpanded}>
+              <Text color={isSelected ? theme.colors.highlight : undefined}>
+                {isSelected ? '▎' : '  '}
+              </Text>
+              <Text bold={isSelected} dimColor={!isExpanded}>
                 {expandIcon} {section.title}
               </Text>
             </Box>

@@ -9,14 +9,14 @@ interface StatusBadgeProps {
   isSelected?: boolean;
 }
 
-export function StatusBadge({ status, isSelected = false }: StatusBadgeProps) {
+export function StatusBadge({ status }: StatusBadgeProps) {
   const { theme } = useTheme();
-  const color = isSelected ? theme.colors.foreground : getStatusColor(status, theme);
+  const color = getStatusColor(status, theme);
   const formattedStatus = formatStatus(status);
 
   return (
-    <Text color={color} bold>
-      [{formattedStatus}]
+    <Text color={color}>
+      ● {formattedStatus}
     </Text>
   );
 }

@@ -8,9 +8,9 @@ interface PriorityBadgeProps {
   isSelected?: boolean;
 }
 
-export function PriorityBadge({ priority, isSelected = false }: PriorityBadgeProps) {
+export function PriorityBadge({ priority }: PriorityBadgeProps) {
   const { theme } = useTheme();
-  const color = isSelected ? theme.colors.foreground : getPriorityColor(priority as any, theme);
+  const color = getPriorityColor(priority as any, theme);
   const dots = getPriorityDots(priority as any);
   return <Text color={color}>{dots}</Text>;
 }
