@@ -30,17 +30,10 @@ interface ProjectViewProps {
 export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onToggleBoard, onBack }: ProjectViewProps) {
   const { adapter } = useAdapter();
   const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
-  const [mode, setMode] = useState<'idle' | 'feature-info' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
+  const [mode, setMode] = useState<'idle' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
   const [featureTransitions, setFeatureTransitions] = useState<string[]>([]);
   const [featureTransitionIndex, setFeatureTransitionIndex] = useState(0);
-  const [infoFeatureId, setInfoFeatureId] = useState<string | null>(null);
-
-  const openFeatureInfo = (featureId?: string) => {
-    if (!featureId) return;
-    setInfoFeatureId(featureId);
-    setMode('feature-info');
-  };
 
   // Build flat list of rows - switch based on view mode
   const rows = useMemo(() => {
@@ -108,7 +101,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 't') {
       setMode('create-task');
     }
-    // Open feature info card (read-only)
+    // Navigate to feature detail screen
     if (input === 'f') {
       const currentRow = rows[selectedIndex];
       const featureId =
@@ -119,7 +112,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
             : currentRow?.type === 'task'
               ? currentRow.task.featureId
               : undefined;
-      openFeatureInfo(featureId);
+      if (featureId) onSelectFeature(featureId);
       return;
     }
     if (input === 'e') {
@@ -160,14 +153,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
       }
     }
   });
-
-  useInput((input, key) => {
-    if (mode !== 'feature-info') return;
-    if (key.escape || input === 'h' || key.leftArrow || key.return) {
-      setMode('idle');
-      setInfoFeatureId(null);
-    }
-  }, { isActive: mode === 'feature-info' });
 
   useInput((input, key) => {
     if (mode !== 'feature-status') return;
@@ -259,7 +244,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
   // Clamp selectedIndex if data changed
   const clampedSelectedIndex = Math.min(selectedIndex, Math.max(0, rows.length - 1));
   const effectiveSelectedIndex = rows.length > 0 ? clampedSelectedIndex : 0;
-  const infoFeature = infoFeatureId ? features.find((f) => f.id === infoFeatureId) : undefined;
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -293,28 +277,12 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
           onToggleFeature={handleToggleFeature}
           onToggleGroup={handleToggleGroup}
           onSelectTask={onSelectTask}
-          onSelectFeature={(featureId) => openFeatureInfo(featureId)}
           onBack={onBack}
           isActive={mode === 'idle'}
         />
       )}
 
       {localError ? <ErrorMessage message={localError} onDismiss={() => setLocalError(null)} /> : null}
-
-      {mode === 'feature-info' && infoFeature ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginTop={1}>
-          <Text bold>Feature Info</Text>
-          <Text bold>{infoFeature.name}</Text>
-          <Box>
-            <StatusBadge status={infoFeature.status} />
-            <Text> </Text>
-            <Text dimColor>Priority: {infoFeature.priority} • Tasks: {infoFeature.tasks.length}</Text>
-          </Box>
-          <Text>{infoFeature.summary}</Text>
-          {infoFeature.description ? <Text dimColor>{infoFeature.description}</Text> : null}
-          <Text dimColor>Esc/h/Enter close</Text>
-        </Box>
-      ) : null}
 
       {mode === 'create-feature' ? (
         <FormDialog

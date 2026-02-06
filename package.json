@@ -2,9 +2,12 @@
   "name": "task-orchestrator-tui",
   "version": "1.0.0",
   "type": "module",
+  "bin": {
+    "tasks": "src/tui/index.tsx"
+  },
   "scripts": {
-    "start": "DATABASE_PATH=$PWD/../orchestrator-db/tasks.db bun run src/tui/index.tsx",
-    "tui": "DATABASE_PATH=$PWD/../orchestrator-db/tasks.db bun run src/tui/index.tsx",
+    "start": "bun run src/tui/index.tsx",
+    "tui": "bun run src/tui/index.tsx",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

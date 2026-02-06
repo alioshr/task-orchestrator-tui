@@ -16,13 +16,14 @@ interface DashboardProps {
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
   onSelectProject: (projectId: string) => void;
+  onViewProject: (projectId: string) => void;
   onBack?: () => void;
 }
 
-export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProject, onBack }: DashboardProps) {
+export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProject, onViewProject, onBack }: DashboardProps) {
   const { adapter } = useAdapter();
   const { projects, loading, error, refresh } = useProjects();
-  const [mode, setMode] = useState<'idle' | 'project-info' | 'create' | 'edit' | 'delete' | 'status'>('idle');
+  const [mode, setMode] = useState<'idle' | 'create' | 'edit' | 'delete' | 'status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
   const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
   const [statusIndex, setStatusIndex] = useState(0);
@@ -61,75 +62,71 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
   const effectiveSelectedIndex = projects.length > 0 ? clampedSelectedIndex : 0;
   const selectedProject = projects[effectiveSelectedIndex];
 
-  useInput((input, key) => {
-    if (mode !== 'idle') return;
-    if (input === 'n') {
-      setMode('create');
-      return;
-    }
-    if (input === 'e' && selectedProject) {
-      setMode('edit');
-      return;
-    }
-    if (input === 'f' && selectedProject) {
-      setMode('project-info');
-      return;
-    }
-    if (input === 'd' && selectedProject) {
-      setMode('delete');
-      return;
-    }
-    if (input === 's' && selectedProject) {
-      adapter.getAllowedTransitions('PROJECT', selectedProject.status).then((result) => {
-        if (result.success) {
-          setAllowedTransitions(result.data);
-          setMode('status');
-        }
-      });
-      return;
-    }
-    if (input === 'r') {
-      refresh();
-    }
-    if (key.escape && mode !== 'idle') {
-      setMode('idle');
-    }
-  });
-
   const statusTargets = useMemo(() => allowedTransitions as ProjectStatus[], [allowedTransitions]);
 
   useInput((input, key) => {
-    if (mode !== 'project-info') return;
-    if (key.escape || input === 'h' || key.leftArrow || key.return) {
-      setMode('idle');
-    }
-  }, { isActive: mode === 'project-info' });
-
-  useInput((input, key) => {
-    if (mode !== 'status') return;
-    if (input === 'j' || key.downArrow) {
-      setStatusIndex((prev) => (prev + 1) % Math.max(1, statusTargets.length));
-      return;
-    }
-    if (input === 'k' || key.upArrow) {
-      setStatusIndex((prev) => (prev - 1 + Math.max(1, statusTargets.length)) % Math.max(1, statusTargets.length));
-      return;
-    }
-    if (key.escape) {
-      setMode('idle');
-      return;
-    }
-    if (key.return && selectedProject && statusTargets[statusIndex]) {
-      const next = statusTargets[statusIndex];
-      adapter.setProjectStatus(selectedProject.id, next, selectedProject.version).then((result) => {
-        if (!result.success) {
-          setLocalError(result.error);
-        }
-        refresh();
+    // Handle status mode
+    if (mode === 'status') {
+      if (input === 'j' || key.downArrow) {
+        setStatusIndex((prev) => (prev + 1) % Math.max(1, statusTargets.length));
+        return;
+      }
+      if (input === 'k' || key.upArrow) {
+        setStatusIndex((prev) => (prev - 1 + Math.max(1, statusTargets.length)) % Math.max(1, statusTargets.length));
+        return;
+      }
+      if (key.escape) {
         setMode('idle');
-      });
+        return;
+      }
+      if (key.return && selectedProject && statusTargets[statusIndex]) {
+        const next = statusTargets[statusIndex];
+        adapter.setProjectStatus(selectedProject.id, next, selectedProject.version).then((result) => {
+          if (!result.success) {
+            setLocalError(result.error);
+          }
+          refresh();
+          setMode('idle');
+        });
+      }
+      return;
     }
-  }, { isActive: mode === 'status' });
+
+    // Handle idle mode
+    if (mode === 'idle') {
+      if (input === 'n') {
+        setMode('create');
+        return;
+      }
+      if (input === 'e' && selectedProject) {
+        setMode('edit');
+        return;
+      }
+      if (input === 'f' && selectedProject) {
+        onViewProject(selectedProject.id);
+        return;
+      }
+      if (input === 'd' && selectedProject) {
+        setMode('delete');
+        return;
+      }
+      if (input === 's' && selectedProject) {
+        adapter.getAllowedTransitions('PROJECT', selectedProject.status).then((result) => {
+          if (result.success) {
+            setAllowedTransitions(result.data);
+            setMode('status');
+          }
+        });
+        return;
+      }
+      if (input === 'r') {
+        refresh();
+      }
+      if (key.escape && mode !== 'idle') {
+        setMode('idle');
+      }
+    }
+  });
 
   return (
     <Box paddingX={1} paddingY={1} flexDirection="column">
@@ -244,22 +241,6 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
         </Box>
       ) : null}
 
-      {mode === 'project-info' && selectedProject ? (
-        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginTop={1}>
-          <Text bold>Project Info</Text>
-          <Text bold>{selectedProject.name}</Text>
-          <Box>
-            <StatusBadge status={selectedProject.status} />
-            <Text> </Text>
-            <Text dimColor>
-              Tasks: {selectedProject.taskCounts.completed}/{selectedProject.taskCounts.total}
-            </Text>
-          </Box>
-          <Text>{selectedProject.summary}</Text>
-          {selectedProject.description ? <Text dimColor>{selectedProject.description}</Text> : null}
-          <Text dimColor>Esc/h/Enter close</Text>
-        </Box>
-      ) : null}
     </Box>
   );
 }

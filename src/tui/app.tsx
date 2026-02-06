@@ -10,6 +10,7 @@ import { ProjectView } from './screens/project-view';
 import { TaskDetail } from './screens/task-detail';
 import { KanbanView } from './screens/kanban-view';
 import { FeatureDetail } from './screens/feature-detail';
+import { ProjectDetail } from './screens/project-detail';
 import { SearchScreen } from './screens/search';
 
 export function App() {
@@ -18,8 +19,8 @@ export function App() {
   const adapter = useMemo(() => new DirectAdapter(), []);
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature' | 'search'>('dashboard');
-  const [searchReturnScreen, setSearchReturnScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'kanban' | 'feature' | 'search'>('dashboard');
+  const [searchReturnScreen, setSearchReturnScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'kanban' | 'feature'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [featureId, setFeatureId] = useState<string | null>(null);
@@ -85,11 +86,19 @@ export function App() {
               { key: 'h', label: 'Back' },
             ]
             : []),
+          ...(screen === 'project-detail'
+            ? [
+              { key: 'e', label: 'Edit' },
+              { key: 's', label: 'Status' },
+              { key: 'r', label: 'Refresh' },
+              { key: 'Esc/h', label: 'Back' },
+            ]
+            : []),
           ...(screen === 'project'
             ? [
               { key: 'n', label: 'New Feature' },
               { key: 't', label: 'New Task' },
-              { key: 'f', label: 'Feature Info' },
+              { key: 'f', label: 'Feature Detail' },
               { key: 'v', label: 'Toggle View' },
               { key: 'b', label: 'Board View' },
               { key: 'r', label: 'Refresh' },
@@ -127,11 +136,28 @@ export function App() {
                   setProjectId(id);
                   setScreen('project');
                 }}
+                onViewProject={(id) => {
+                  setProjectId(id);
+                  setScreen('project-detail');
+                }}
                 onBack={() => {
                   setScreen('dashboard');
                   setProjectId(null);
                   setTaskId(null);
                   setFeatureId(null);
+                }}
+              />
+            )}
+            {screen === 'project-detail' && projectId && (
+              <ProjectDetail
+                projectId={projectId}
+                onSelectFeature={(id) => {
+                  setFeatureId(id);
+                  setScreen('feature');
+                }}
+                onBack={() => {
+                  setScreen('dashboard');
+                  setProjectId(null);
                 }}
               />
             )}
