@@ -482,7 +482,7 @@ describe('buildStatusGroupedRows', () => {
     expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('In Progress');
   });
 
-  it('should include empty features in their mapped status bucket', () => {
+  it('should include empty features in their mapped status bucket (status mode)', () => {
     const completedFeature: FeatureWithTasks = {
       ...createFeature('f-complete', 'Completed Feature'),
       status: FeatureStatus.COMPLETED,
@@ -499,5 +499,271 @@ describe('buildStatusGroupedRows', () => {
     expect(completedFeatureRow?.type).toBe('group');
     expect(completedFeatureRow?.type === 'group' && completedFeatureRow.taskCount).toBe(0);
     expect(completedFeatureRow?.type === 'group' && completedFeatureRow.expandable).toBe(false);
+  });
+});
+
+/**
+ * Copy of FEATURE_STATUS_ORDER and buildFeatureStatusGroupedRows for testing
+ */
+const FEATURE_STATUS_ORDER: string[] = [
+  'DRAFT',
+  'PLANNING',
+  'IN_DEVELOPMENT',
+  'TESTING',
+  'VALIDATING',
+  'PENDING_REVIEW',
+  'BLOCKED',
+  'ON_HOLD',
+  'DEPLOYED',
+  'COMPLETED',
+  'ARCHIVED',
+];
+
+const FEATURE_STATUS_DISPLAY_NAMES: Record<string, string> = {
+  ...STATUS_DISPLAY_NAMES,
+  DRAFT: 'Draft',
+  PLANNING: 'Planning',
+  IN_DEVELOPMENT: 'In Development',
+  VALIDATING: 'Validating',
+  PENDING_REVIEW: 'Pending Review',
+  ARCHIVED: 'Archived',
+};
+
+function buildFeatureStatusGroupedRows(
+  features: FeatureWithTasks[],
+  expandedGroups: Set<string>
+): TreeRow[] {
+  const rows: TreeRow[] = [];
+
+  const featuresByStatus = new Map<string, FeatureWithTasks[]>();
+  for (const feature of features) {
+    const status = feature.status as string;
+    const group = featuresByStatus.get(status) || [];
+    group.push(feature);
+    featuresByStatus.set(status, group);
+  }
+
+  for (const status of FEATURE_STATUS_ORDER) {
+    const statusFeatures = featuresByStatus.get(status) || [];
+    if (statusFeatures.length === 0) continue;
+
+    const statusGroupId = `fs:${status}`;
+    const statusExpanded = expandedGroups.has(statusGroupId);
+
+    rows.push({
+      type: 'group',
+      id: statusGroupId,
+      label: FEATURE_STATUS_DISPLAY_NAMES[status] || status,
+      status,
+      taskCount: statusFeatures.length,
+      expanded: statusExpanded,
+      depth: 0,
+      expandable: true,
+    });
+
+    if (statusExpanded) {
+      const sortedFeatures = [...statusFeatures].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      for (const feature of sortedFeatures) {
+        const compositeFeatureId = `fs:${status}:${feature.id}`;
+        const featureExpandable = feature.tasks.length > 0;
+        const featureExpanded = featureExpandable && expandedGroups.has(compositeFeatureId);
+
+        rows.push({
+          type: 'group',
+          id: compositeFeatureId,
+          label: feature.name,
+          status: feature.status,
+          taskCount: feature.tasks.length,
+          expanded: featureExpanded,
+          depth: 1,
+          expandable: featureExpandable,
+          featureId: feature.id,
+        });
+
+        if (featureExpanded) {
+          const sortedTasks = [...feature.tasks].sort((a, b) => {
+            const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
+            if (priorityDiff !== 0) return priorityDiff;
+            return a.title.localeCompare(b.title);
+          });
+
+          sortedTasks.forEach((task, index) => {
+            rows.push({
+              type: 'task',
+              task,
+              isLast: index === sortedTasks.length - 1,
+              depth: 2,
+            });
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+describe('buildFeatureStatusGroupedRows', () => {
+  const createTask = (
+    id: string,
+    title: string,
+    status: TaskStatus,
+    priority: Priority,
+    featureId?: string
+  ): Task => ({
+    id,
+    title,
+    summary: `Summary for ${title}`,
+    status,
+    priority,
+    complexity: 5,
+    version: 1,
+    lockStatus: LockStatus.UNLOCKED,
+    createdAt: new Date(),
+    modifiedAt: new Date(),
+    featureId,
+  });
+
+  const createFeature = (
+    id: string,
+    name: string,
+    status: FeatureStatus = FeatureStatus.IN_DEVELOPMENT,
+    tasks: Task[] = []
+  ): FeatureWithTasks => ({
+    id,
+    name,
+    summary: `Summary for ${name}`,
+    status,
+    priority: Priority.MEDIUM,
+    version: 1,
+    createdAt: new Date(),
+    modifiedAt: new Date(),
+    tasks,
+  });
+
+  it('should group features by their feature status in the correct order', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.COMPLETED),
+      createFeature('f2', 'Feature 2', FeatureStatus.DRAFT),
+      createFeature('f3', 'Feature 3', FeatureStatus.IN_DEVELOPMENT),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set());
+
+    const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
+    expect(statusGroupRows.length).toBe(3);
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:DRAFT');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('fs:IN_DEVELOPMENT');
+    expect(statusGroupRows[2]?.type === 'group' && statusGroupRows[2].id).toBe('fs:COMPLETED');
+  });
+
+  it('should use display names for feature status labels', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f2', 'Feature 2', FeatureStatus.PENDING_REVIEW),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set());
+
+    const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].label).toBe('In Development');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('Pending Review');
+  });
+
+  it('should skip empty status groups', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.DRAFT),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set());
+
+    const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
+    expect(statusGroupRows.length).toBe(1);
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:DRAFT');
+  });
+
+  it('should show feature count in taskCount field of status group', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f2', 'Feature 2', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f3', 'Feature 3', FeatureStatus.COMPLETED),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set());
+
+    const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].taskCount).toBe(2); // IN_DEVELOPMENT
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].taskCount).toBe(1); // COMPLETED
+  });
+
+  it('should show features when status group is expanded', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature Alpha', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f2', 'Feature Beta', FeatureStatus.IN_DEVELOPMENT),
+    ];
+
+    // Collapsed
+    const collapsedRows = buildFeatureStatusGroupedRows(features, new Set());
+    expect(collapsedRows.length).toBe(1); // Only status group
+
+    // Expanded
+    const expandedRows = buildFeatureStatusGroupedRows(features, new Set(['fs:IN_DEVELOPMENT']));
+    expect(expandedRows.length).toBe(3); // Status group + 2 features
+    expect(expandedRows[1]?.type).toBe('group');
+    expect(expandedRows[1]?.type === 'group' && expandedRows[1].depth).toBe(1);
+    expect(expandedRows[1]?.type === 'group' && expandedRows[1].featureId).toBe('f1');
+    expect(expandedRows[2]?.type === 'group' && expandedRows[2].featureId).toBe('f2');
+  });
+
+  it('should show tasks when feature is expanded', () => {
+    const tasks = [
+      createTask('t1', 'High Task', 'IN_PROGRESS' as TaskStatus, Priority.HIGH, 'f1'),
+      createTask('t2', 'Low Task', 'IN_PROGRESS' as TaskStatus, Priority.LOW, 'f1'),
+    ];
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT, tasks),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(
+      features,
+      new Set(['fs:IN_DEVELOPMENT', 'fs:IN_DEVELOPMENT:f1'])
+    );
+
+    // Status group + feature group + 2 tasks
+    expect(rows.length).toBe(4);
+    const taskRows = rows.filter((r) => r.type === 'task');
+    expect(taskRows.length).toBe(2);
+    // Sorted by priority descending
+    expect(taskRows[0]?.type === 'task' && taskRows[0].task.title).toBe('High Task');
+    expect(taskRows[1]?.type === 'task' && taskRows[1].task.title).toBe('Low Task');
+    // isLast on last task
+    expect(taskRows[0]?.type === 'task' && taskRows[0].isLast).toBe(false);
+    expect(taskRows[1]?.type === 'task' && taskRows[1].isLast).toBe(true);
+  });
+
+  it('should mark features without tasks as not expandable', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Empty Feature', FeatureStatus.DRAFT, []),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:DRAFT']));
+
+    const featureRow = rows.find((r) => r.type === 'group' && r.depth === 1);
+    expect(featureRow?.type === 'group' && featureRow.expandable).toBe(false);
+  });
+
+  it('should set featureId on feature group rows', () => {
+    const features: FeatureWithTasks[] = [
+      createFeature('f1', 'Feature 1', FeatureStatus.PLANNING),
+    ];
+
+    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:PLANNING']));
+
+    const featureRow = rows.find((r) => r.type === 'group' && r.depth === 1);
+    expect(featureRow?.type === 'group' && featureRow.featureId).toBe('f1');
+    expect(featureRow?.type === 'group' && featureRow.id).toBe('fs:PLANNING:f1');
   });
 });

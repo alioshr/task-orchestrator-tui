@@ -5,29 +5,29 @@ import { KanbanView } from './kanban-view';
 import { ThemeProvider } from '../../ui/context/theme-context';
 import { AdapterProvider } from '../../ui/context/adapter-context';
 import type { DataAdapter } from '../../ui/adapters/types';
-import type { BoardColumn } from '../../ui/lib/types';
-import { TaskStatus, Priority, LockStatus, ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { FeatureBoardColumn } from '../../ui/lib/types';
+import { FeatureStatus, TaskStatus, Priority, LockStatus, ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
 
-interface UseKanbanReturn {
-  columns: BoardColumn[];
+interface UseFeatureKanbanReturn {
+  columns: FeatureBoardColumn[];
   loading: boolean;
   error: string | null;
   refresh: () => void;
-  moveTask: (taskId: string, newStatus: string) => Promise<boolean>;
+  moveFeature: (featureId: string, newStatus: string) => Promise<boolean>;
 }
 
-// Mock useKanban hook
-const mockUseKanban = mock((): UseKanbanReturn => ({
+// Mock useFeatureKanban hook
+const mockUseFeatureKanban = mock((): UseFeatureKanbanReturn => ({
   columns: [],
   loading: true,
   error: null,
   refresh: mock(() => {}),
-  moveTask: mock(async () => true),
+  moveFeature: mock(async () => true),
 }));
 
 // Mock the hook module
-mock.module('../../ui/hooks/use-kanban', () => ({
-  useKanban: mockUseKanban,
+mock.module('../../ui/hooks/use-feature-kanban', () => ({
+  useFeatureKanban: mockUseFeatureKanban,
 }));
 
 describe('KanbanView', () => {
@@ -41,50 +41,67 @@ describe('KanbanView', () => {
     modifiedAt: new Date(),
   };
 
-  const mockColumns: BoardColumn[] = [
+  const mockColumns: FeatureBoardColumn[] = [
     {
-      id: 'pending',
-      title: 'Pending',
-      status: 'PENDING',
-      tasks: [
+      id: 'draft',
+      title: 'Draft',
+      status: 'DRAFT',
+      features: [
         {
-          id: 'task-1',
-          title: 'Task A',
+          id: 'feature-1',
+          projectId: 'proj-1',
+          name: 'Feature A',
           summary: 'Summary A',
-          status: TaskStatus.PENDING,
+          status: FeatureStatus.DRAFT,
           priority: Priority.HIGH,
-          complexity: 5,
           version: 1,
-          lockStatus: LockStatus.UNLOCKED,
           createdAt: new Date(),
           modifiedAt: new Date(),
+          tasks: [
+            {
+              id: 'task-1',
+              projectId: 'proj-1',
+              featureId: 'feature-1',
+              title: 'Task 1',
+              summary: 'Task summary 1',
+              status: TaskStatus.PENDING,
+              priority: Priority.HIGH,
+              complexity: 5,
+              version: 1,
+              lockStatus: LockStatus.UNLOCKED,
+              createdAt: new Date(),
+              modifiedAt: new Date(),
+            },
+          ],
+          taskCounts: { total: 1, completed: 0 },
         },
       ],
     },
     {
-      id: 'in-progress',
-      title: 'In Progress',
-      status: 'IN_PROGRESS',
-      tasks: [
+      id: 'in-development',
+      title: 'In Development',
+      status: 'IN_DEVELOPMENT',
+      features: [
         {
-          id: 'task-2',
-          title: 'Task B',
+          id: 'feature-2',
+          projectId: 'proj-1',
+          name: 'Feature B',
           summary: 'Summary B',
-          status: TaskStatus.IN_PROGRESS,
+          status: FeatureStatus.IN_DEVELOPMENT,
           priority: Priority.MEDIUM,
-          complexity: 8,
           version: 1,
-          lockStatus: LockStatus.UNLOCKED,
           createdAt: new Date(),
           modifiedAt: new Date(),
+          tasks: [],
+          taskCounts: { total: 0, completed: 0 },
         },
       ],
     },
     {
-      id: 'completed',
-      title: 'Completed',
-      status: 'COMPLETED',
-      tasks: [],
+      id: 'deployed',
+      title: 'Deployed',
+      status: 'DEPLOYED',
+      features: [],
     },
   ];
 
@@ -92,13 +109,21 @@ describe('KanbanView', () => {
   let onSelectTask: ReturnType<typeof mock>;
   let onBack: ReturnType<typeof mock>;
   let onActiveColumnIndexChange: ReturnType<typeof mock>;
+  let onSelectedFeatureIndexChange: ReturnType<typeof mock>;
+  let onExpandedFeatureIdChange: ReturnType<typeof mock>;
   let onSelectedTaskIndexChange: ReturnType<typeof mock>;
+  let onActiveStatusesChange: ReturnType<typeof mock>;
+  let activeStatuses: Set<string>;
 
   beforeEach(() => {
     onSelectTask = mock(() => {});
     onBack = mock(() => {});
     onActiveColumnIndexChange = mock(() => {});
+    onSelectedFeatureIndexChange = mock(() => {});
+    onExpandedFeatureIdChange = mock(() => {});
     onSelectedTaskIndexChange = mock(() => {});
+    onActiveStatusesChange = mock(() => {});
+    activeStatuses = new Set(['DRAFT', 'IN_DEVELOPMENT', 'DEPLOYED']);
 
     mockAdapter = {
       getProject: mock(async () => ({ success: true, data: mockProject })),
@@ -130,16 +155,31 @@ describe('KanbanView', () => {
     } as DataAdapter;
 
     // Reset mock implementation
-    mockUseKanban.mockImplementation((): UseKanbanReturn => ({
+    mockUseFeatureKanban.mockImplementation((): UseFeatureKanbanReturn => ({
       columns: mockColumns,
       loading: false,
       error: null,
       refresh: mock(() => {}),
-      moveTask: mock(async () => true),
+      moveFeature: mock(async () => true),
     }));
   });
 
-  function renderWithProviders(projectId: string, activeColumnIndex = 0, selectedTaskIndex = 0) {
+  function renderWithProviders(
+    projectId: string,
+    overrides: {
+      activeColumnIndex?: number;
+      selectedFeatureIndex?: number;
+      expandedFeatureId?: string | null;
+      selectedTaskIndex?: number;
+    } = {}
+  ) {
+    const {
+      activeColumnIndex = 0,
+      selectedFeatureIndex = 0,
+      expandedFeatureId = null,
+      selectedTaskIndex = 0,
+    } = overrides;
+
     return render(
       <ThemeProvider>
         <AdapterProvider adapter={mockAdapter}>
@@ -147,10 +187,16 @@ describe('KanbanView', () => {
             projectId={projectId}
             activeColumnIndex={activeColumnIndex}
             onActiveColumnIndexChange={onActiveColumnIndexChange}
+            selectedFeatureIndex={selectedFeatureIndex}
+            onSelectedFeatureIndexChange={onSelectedFeatureIndexChange}
+            expandedFeatureId={expandedFeatureId}
+            onExpandedFeatureIdChange={onExpandedFeatureIdChange}
             selectedTaskIndex={selectedTaskIndex}
             onSelectedTaskIndexChange={onSelectedTaskIndexChange}
             onSelectTask={onSelectTask}
             onBack={onBack}
+            activeStatuses={activeStatuses}
+            onActiveStatusesChange={onActiveStatusesChange}
           />
         </AdapterProvider>
       </ThemeProvider>
@@ -158,12 +204,12 @@ describe('KanbanView', () => {
   }
 
   test('should render loading state', () => {
-    mockUseKanban.mockImplementation((): UseKanbanReturn => ({
+    mockUseFeatureKanban.mockImplementation((): UseFeatureKanbanReturn => ({
       columns: [],
       loading: true,
       error: null,
       refresh: mock(() => {}),
-      moveTask: mock(async () => true),
+      moveFeature: mock(async () => true),
     }));
 
     const { lastFrame } = renderWithProviders('proj-1');
@@ -173,12 +219,12 @@ describe('KanbanView', () => {
   });
 
   test('should render error state', () => {
-    mockUseKanban.mockImplementation((): UseKanbanReturn => ({
+    mockUseFeatureKanban.mockImplementation((): UseFeatureKanbanReturn => ({
       columns: [],
       loading: false,
       error: 'Failed to load kanban board',
       refresh: mock(() => {}),
-      moveTask: mock(async () => true),
+      moveFeature: mock(async () => true),
     }));
 
     const { lastFrame } = renderWithProviders('proj-1');
@@ -188,67 +234,88 @@ describe('KanbanView', () => {
     expect(output).toContain('Failed to load kanban board');
   });
 
-  test('should render kanban board header', () => {
+  test('should render feature board header', () => {
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
-    // Should show kanban board title (project name loads async)
-    expect(output).toContain('Kanban Board');
+    expect(output).toContain('Feature Board');
   });
 
-  test('should render columns and tasks', () => {
+  test('should render columns and features', () => {
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
-    expect(output).toContain('Pending');
-    expect(output).toContain('In Progress');
-    expect(output).toContain('Completed');
-    expect(output).toContain('Task A');
-    expect(output).toContain('Task B');
+    expect(output).toContain('Draft');
+    expect(output).toContain('In Development');
+    expect(output).toContain('Deployed');
+    expect(output).toContain('Feature A');
+    expect(output).toContain('Feature B');
   });
 
   test('should show empty state when no columns', () => {
-    mockUseKanban.mockImplementation((): UseKanbanReturn => ({
+    mockUseFeatureKanban.mockImplementation((): UseFeatureKanbanReturn => ({
       columns: [],
       loading: false,
       error: null,
       refresh: mock(() => {}),
-      moveTask: mock(async () => true),
+      moveFeature: mock(async () => true),
     }));
 
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
-    expect(output).toContain('No tasks in this project yet.');
+    expect(output).toContain('No features in this project yet.');
   });
 
-  test('should display keyboard hints', () => {
+  test('should display feature mode keyboard hints when no feature is expanded', () => {
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
     expect(output).toContain('h/l: columns');
-    expect(output).toContain('j/k: tasks');
-    expect(output).toContain('Enter: open');
+    expect(output).toContain('j/k: features');
+    expect(output).toContain('Enter: expand');
     expect(output).toContain('m: move');
+    expect(output).toContain('f: filter');
     expect(output).toContain('r: refresh');
     expect(output).toContain('Esc: back');
   });
 
-  test('should call onBack when Escape is pressed', () => {
+  test('should display task mode keyboard hints when a feature is expanded', () => {
+    const { lastFrame } = renderWithProviders('proj-1', {
+      expandedFeatureId: 'feature-1',
+    });
+    const output = lastFrame();
+
+    expect(output).toContain('j/k: tasks');
+    expect(output).toContain('Enter: open task');
+    expect(output).toContain('Esc/h: collapse');
+    expect(output).toContain('r: refresh');
+  });
+
+  test('should call onBack when Escape is pressed in feature mode', () => {
     const { stdin } = renderWithProviders('proj-1');
 
     stdin.write('\x1B'); // ESC key
     expect(onBack).toHaveBeenCalled();
   });
 
+  test('should not call onBack when Escape is pressed in task mode', () => {
+    const { stdin } = renderWithProviders('proj-1', {
+      expandedFeatureId: 'feature-1',
+    });
+
+    stdin.write('\x1B'); // ESC key
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
   test('should call refresh when r is pressed', () => {
     const mockRefresh = mock(() => {});
-    mockUseKanban.mockImplementation((): UseKanbanReturn => ({
+    mockUseFeatureKanban.mockImplementation((): UseFeatureKanbanReturn => ({
       columns: mockColumns,
       loading: false,
       error: null,
       refresh: mockRefresh,
-      moveTask: mock(async () => true),
+      moveFeature: mock(async () => true),
     }));
 
     const { stdin } = renderWithProviders('proj-1');
@@ -279,12 +346,12 @@ describe('KanbanView', () => {
     expect(output).toBeTruthy();
   });
 
-  test('should initialize with first column and first task selected', () => {
+  test('should initialize with first column and first feature selected', () => {
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
-    // Should render kanban board (implies column navigation is working)
-    expect(output).toContain('Task A');
-    expect(output).toContain('Task B');
+    // Should render feature board (implies column navigation is working)
+    expect(output).toContain('Feature A');
+    expect(output).toContain('Feature B');
   });
 });

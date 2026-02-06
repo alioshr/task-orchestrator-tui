@@ -213,7 +213,30 @@ const STATUS_DISPLAY_NAMES: Record<string, string> = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   DEFERRED: 'Deferred',
+  DRAFT: 'Draft',
+  PLANNING: 'Planning',
+  IN_DEVELOPMENT: 'In Development',
+  VALIDATING: 'Validating',
+  PENDING_REVIEW: 'Pending Review',
+  ARCHIVED: 'Archived',
 };
+
+/**
+ * Feature status order for grouping features by their own status
+ */
+const FEATURE_STATUS_ORDER: FeatureStatus[] = [
+  'DRAFT' as FeatureStatus,
+  'PLANNING' as FeatureStatus,
+  'IN_DEVELOPMENT' as FeatureStatus,
+  'TESTING' as FeatureStatus,
+  'VALIDATING' as FeatureStatus,
+  'PENDING_REVIEW' as FeatureStatus,
+  'BLOCKED' as FeatureStatus,
+  'ON_HOLD' as FeatureStatus,
+  'DEPLOYED' as FeatureStatus,
+  'COMPLETED' as FeatureStatus,
+  'ARCHIVED' as FeatureStatus,
+];
 
 /**
  * Build status-grouped tree rows for tasks
@@ -436,6 +459,101 @@ function buildStatusGroupedRows(
 }
 
 /**
+ * Build feature-status-grouped tree rows
+ * Groups features by their feature status, then nests tasks within each feature
+ *
+ * @param features - All features with their tasks
+ * @param expandedGroups - Set of expanded group IDs
+ * @returns TreeRow[] grouped by feature status → feature → tasks
+ */
+function buildFeatureStatusGroupedRows(
+  features: FeatureWithTasks[],
+  expandedGroups: Set<string>
+): TreeRow[] {
+  const rows: TreeRow[] = [];
+
+  // Group features by their status
+  const featuresByStatus = new Map<string, FeatureWithTasks[]>();
+  for (const feature of features) {
+    const status = feature.status as string;
+    const group = featuresByStatus.get(status) || [];
+    group.push(feature);
+    featuresByStatus.set(status, group);
+  }
+
+  // Build rows in feature status order
+  for (const status of FEATURE_STATUS_ORDER) {
+    const statusFeatures = featuresByStatus.get(status) || [];
+    if (statusFeatures.length === 0) continue;
+
+    const statusGroupId = `fs:${status}`;
+    const statusExpanded = expandedGroups.has(statusGroupId);
+
+    // Count total tasks across all features in this status
+    const totalTasks = statusFeatures.reduce((sum, f) => sum + f.tasks.length, 0);
+
+    // Add status group row (depth 0)
+    rows.push({
+      type: 'group',
+      id: statusGroupId,
+      label: STATUS_DISPLAY_NAMES[status] || status,
+      status,
+      taskCount: statusFeatures.length,
+      expanded: statusExpanded,
+      depth: 0,
+      expandable: true,
+    });
+
+    if (statusExpanded) {
+      // Sort features by creation date (oldest first)
+      const sortedFeatures = [...statusFeatures].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      for (const feature of sortedFeatures) {
+        const compositeFeatureId = `fs:${status}:${feature.id}`;
+        const featureExpandable = feature.tasks.length > 0;
+        const featureExpanded = featureExpandable && expandedGroups.has(compositeFeatureId);
+
+        // Add feature group row (depth 1)
+        rows.push({
+          type: 'group',
+          id: compositeFeatureId,
+          label: feature.name,
+          status: feature.status,
+          taskCount: feature.tasks.length,
+          expanded: featureExpanded,
+          depth: 1,
+          expandable: featureExpandable,
+          featureId: feature.id,
+        });
+
+        // Add task rows if feature is expanded (depth 2)
+        if (featureExpanded) {
+          // Sort tasks by priority (descending) then title
+          const sortedTasks = [...feature.tasks].sort((a, b) => {
+            const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
+            if (priorityDiff !== 0) return priorityDiff;
+            return a.title.localeCompare(b.title);
+          });
+
+          sortedTasks.forEach((task, index) => {
+            rows.push({
+              type: 'task',
+              task,
+              isLast: index === sortedTasks.length - 1,
+              depth: 2,
+            });
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+/**
  * Hook for fetching a project tree with features and their tasks.
  * Also includes unassigned tasks (tasks without a feature).
  *
@@ -520,12 +638,18 @@ export function useProjectTree(projectId: string, expandedGroups: Set<string> = 
     return buildStatusGroupedRows(allTasks, features, expandedGroups);
   }, [allTasks, features, expandedGroups]);
 
+  // Build feature-status-grouped rows
+  const featureStatusGroupedRows = useMemo(() => {
+    return buildFeatureStatusGroupedRows(features, expandedGroups);
+  }, [features, expandedGroups]);
+
   return {
     project,
     features,
     unassignedTasks,
     taskCounts,
     statusGroupedRows,
+    featureStatusGroupedRows,
     loading,
     error,
     refresh: loadProjectTree,
@@ -703,24 +827,27 @@ export function useFeature(id: string) {
       adapter.getSections('FEATURE' as EntityType, id),
     ]);
 
-    if (featureResult.success) {
+    let loadError: string | null = null;
+
+    if (featureResult.success && featureResult.data) {
       const featureWithTasks: FeatureWithTasks = {
         ...featureResult.data,
         tasks: tasksResult.success ? tasksResult.data : [],
       };
       setFeature(featureWithTasks);
-    } else {
-      setError(featureResult.error);
+    } else if (!featureResult.success) {
+      loadError = featureResult.error;
     }
 
     if (sectionsResult.success) {
       setSections(sectionsResult.data);
-    } else if (!error) {
-      setError(sectionsResult.error);
+    } else if (!loadError) {
+      loadError = sectionsResult.error;
     }
 
+    setError(loadError);
     setLoading(false);
-  }, [adapter, id, error]);
+  }, [adapter, id]);
 
   useEffect(() => {
     loadFeature();

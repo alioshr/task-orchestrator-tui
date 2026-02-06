@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
-import type { Feature, Task, FeatureStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
+import { useFeature } from '../../ui/hooks/use-data';
+import type { FeatureStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
 import { StatusBadge } from '../components/status-badge';
 import { PriorityBadge } from '../components/priority-badge';
+import { SectionList } from '../components/section-list';
 import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
@@ -19,38 +21,13 @@ interface FeatureDetailProps {
 export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetailProps) {
   const { adapter } = useAdapter();
   const { theme } = useTheme();
-  const [feature, setFeature] = useState<Feature | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { feature, tasks, sections, loading, error, refresh } = useFeature(featureId);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
+  const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [mode, setMode] = useState<'idle' | 'edit-feature' | 'create-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
   const [transitions, setTransitions] = useState<string[]>([]);
   const [transitionIndex, setTransitionIndex] = useState(0);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    const [featureResult, tasksResult] = await Promise.all([
-      adapter.getFeature(featureId),
-      adapter.getTasks({ featureId }),
-    ]);
-    if (featureResult.success) {
-      setFeature(featureResult.data);
-    } else {
-      setError(featureResult.error);
-    }
-    if (tasksResult.success) {
-      setTasks(tasksResult.data);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [featureId]);
 
   // Handle keyboard navigation
   useInput((input, key) => {
@@ -59,7 +36,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
       onBack();
     }
     if (input === 'r') {
-      load();
+      refresh();
     }
     if (input === 'e' && feature) {
       setMode('edit-feature');
@@ -111,7 +88,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
       if (!nextStatus) return;
       adapter.setFeatureStatus(feature.id, nextStatus, feature.version).then((result) => {
         if (!result.success) setLocalError(result.error);
-        load();
+        refresh();
         setMode('idle');
       });
     }
@@ -225,6 +202,26 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         )}
       </Box>
 
+      {/* Divider */}
+      {sections.length > 0 && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
+        </Box>
+      )}
+
+      {/* Sections Panel - only show if there are sections */}
+      {sections.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold>Sections</Text>
+          <SectionList
+            sections={sections}
+            selectedIndex={selectedSectionIndex}
+            onSelectedIndexChange={setSelectedSectionIndex}
+            isActive={true}
+          />
+        </Box>
+      )}
+
       {/* Help Footer */}
       <Box marginTop={1}>
         <Text dimColor>
@@ -253,7 +250,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
               version: feature.version,
             }).then((result) => {
               if (!result.success) setLocalError(result.error);
-              load();
+              refresh();
               setMode('idle');
             });
           }}
@@ -282,7 +279,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
               complexity: Number.parseInt(values.complexity ?? '3', 10) || 3,
             }).then((result) => {
               if (!result.success) setLocalError(result.error);
-              load();
+              refresh();
               setMode('idle');
             });
           }}

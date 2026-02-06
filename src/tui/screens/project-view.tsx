@@ -20,8 +20,8 @@ interface ProjectViewProps {
   onExpandedGroupsChange: (groups: Set<string>) => void;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
-  viewMode: 'features' | 'status';
-  onViewModeChange: (mode: 'features' | 'status') => void;
+  viewMode: 'features' | 'status' | 'feature-status';
+  onViewModeChange: (mode: 'features' | 'status' | 'feature-status') => void;
   onSelectTask: (taskId: string) => void;
   onSelectFeature: (featureId: string) => void;
   onToggleBoard: () => void;
@@ -31,7 +31,7 @@ interface ProjectViewProps {
 export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onToggleBoard, onBack }: ProjectViewProps) {
   const { adapter } = useAdapter();
   const { theme } = useTheme();
-  const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
+  const { project, features, unassignedTasks, taskCounts, statusGroupedRows, featureStatusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
   const [mode, setMode] = useState<'idle' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
   const [featureTransitions, setFeatureTransitions] = useState<string[]>([]);
@@ -41,6 +41,8 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
   const rows = useMemo(() => {
     if (viewMode === 'status') {
       return statusGroupedRows;
+    } else if (viewMode === 'feature-status') {
+      return featureStatusGroupedRows;
     }
 
     // Feature-grouped view (original logic)
@@ -79,7 +81,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     }
 
     return result;
-  }, [viewMode, statusGroupedRows, features, unassignedTasks, expandedFeatures]);
+  }, [viewMode, statusGroupedRows, featureStatusGroupedRows, features, unassignedTasks, expandedFeatures]);
 
   // Handle keyboard
   useInput((input, key) => {
@@ -90,9 +92,10 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 'r') {
       refresh();
     }
-    // Toggle view mode with 'v'
+    // Cycle view mode with 'v': features → status → feature-status → features
     if (input === 'v') {
-      onViewModeChange(viewMode === 'features' ? 'status' : 'features');
+      const next = viewMode === 'features' ? 'status' : viewMode === 'status' ? 'feature-status' : 'features';
+      onViewModeChange(next);
     }
     if (input === 'b') {
       onToggleBoard();
@@ -263,9 +266,10 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
           modes={[
             { key: 'features', label: 'Features' },
             { key: 'status', label: 'Status' },
+            { key: 'feature-status', label: 'Feature Status' },
           ]}
           activeMode={viewMode}
-          onModeChange={(mode) => onViewModeChange(mode as 'features' | 'status')}
+          onModeChange={(mode) => onViewModeChange(mode as 'features' | 'status' | 'feature-status')}
         />
       </Box>
 

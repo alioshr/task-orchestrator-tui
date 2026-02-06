@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ThemeProvider } from '../ui/context/theme-context';
 import { AdapterProvider } from '../ui/context/adapter-context';
@@ -34,11 +34,17 @@ export function App() {
   const [projectExpandedFeatures, setProjectExpandedFeatures] = useState<Set<string>>(new Set());
   const [projectExpandedGroups, setProjectExpandedGroups] = useState<Set<string>>(new Set());
   const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
-  const [projectViewMode, setProjectViewMode] = useState<'features' | 'status'>('status');
+  const [projectViewMode, setProjectViewMode] = useState<'features' | 'status' | 'feature-status'>('status');
 
   // KanbanView state
   const [kanbanActiveColumnIndex, setKanbanActiveColumnIndex] = useState(0);
-  const [kanbanSelectedTaskIndex, setKanbanSelectedTaskIndex] = useState(0);
+  const [kanbanSelectedFeatureIndex, setKanbanSelectedFeatureIndex] = useState(0);
+  const [kanbanExpandedFeatureId, setKanbanExpandedFeatureId] = useState<string | null>(null);
+  const [kanbanSelectedTaskIndex, setKanbanSelectedTaskIndex] = useState(-1);
+  const [kanbanActiveStatuses, setKanbanActiveStatuses] = useState<Set<string>>(new Set());
+  const handleKanbanActiveStatusesChange = useCallback((statuses: Set<string>) => {
+    setKanbanActiveStatuses(statuses);
+  }, []);
 
   // Global keyboard handling
   useInput((input, key) => {
@@ -128,12 +134,22 @@ export function App() {
             ]
             : []),
           ...(screen === 'kanban'
-            ? [
-              { key: 'h/l', label: 'Columns' },
-              { key: 'b', label: 'Tree View' },
-              { key: 'm', label: 'Move Task' },
-              { key: 'Esc', label: 'Back' },
-            ]
+            ? kanbanExpandedFeatureId
+              ? [
+                { key: 'j/k', label: 'Tasks' },
+                { key: 'Enter', label: 'Open Task' },
+                { key: 'Esc/h', label: 'Collapse' },
+                { key: 'r', label: 'Refresh' },
+              ]
+              : [
+                { key: 'h/l', label: 'Columns' },
+                { key: 'j/k', label: 'Features' },
+                { key: 'Enter', label: 'Expand' },
+                { key: 'm', label: 'Move Feature' },
+                { key: 'f', label: 'Filter' },
+                { key: 'b', label: 'Tree View' },
+                { key: 'Esc', label: 'Back' },
+              ]
             : []),
           ...(screen === 'task'
             ? [
@@ -217,8 +233,14 @@ export function App() {
                 projectId={projectId}
                 activeColumnIndex={kanbanActiveColumnIndex}
                 onActiveColumnIndexChange={setKanbanActiveColumnIndex}
+                selectedFeatureIndex={kanbanSelectedFeatureIndex}
+                onSelectedFeatureIndexChange={setKanbanSelectedFeatureIndex}
+                expandedFeatureId={kanbanExpandedFeatureId}
+                onExpandedFeatureIdChange={setKanbanExpandedFeatureId}
                 selectedTaskIndex={kanbanSelectedTaskIndex}
                 onSelectedTaskIndexChange={setKanbanSelectedTaskIndex}
+                activeStatuses={kanbanActiveStatuses}
+                onActiveStatusesChange={handleKanbanActiveStatusesChange}
                 onSelectTask={(id) => {
                   setTaskOriginScreen('kanban');
                   setTaskId(id);

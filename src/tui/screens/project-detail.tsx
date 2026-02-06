@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
-import type { Project, Feature, ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { Project, Feature, ProjectStatus, Section, EntityType } from 'task-orchestrator-bun/src/domain/types';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
 import { useTheme } from '../../ui/context/theme-context';
+import { SectionList } from '../components/section-list';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -20,9 +21,11 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
   const { theme } = useTheme();
   const [project, setProject] = useState<Project | null>(null);
   const [features, setFeatures] = useState<Feature[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFeatureIndex, setSelectedFeatureIndex] = useState(0);
+  const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [mode, setMode] = useState<'idle' | 'edit-project' | 'project-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
   const [transitions, setTransitions] = useState<string[]>([]);
@@ -31,9 +34,10 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
   const load = async () => {
     setLoading(true);
     setError(null);
-    const [projectResult, featuresResult] = await Promise.all([
+    const [projectResult, featuresResult, sectionsResult] = await Promise.all([
       adapter.getProject(projectId),
       adapter.getFeatures({ projectId }),
+      adapter.getSections('PROJECT' as EntityType, projectId),
     ]);
     if (projectResult.success) {
       setProject(projectResult.data);
@@ -42,6 +46,9 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
     }
     if (featuresResult.success) {
       setFeatures(featuresResult.data);
+    }
+    if (sectionsResult.success) {
+      setSections(sectionsResult.data);
     }
     setLoading(false);
   };
@@ -218,6 +225,26 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
           </Box>
         )}
       </Box>
+
+      {/* Divider */}
+      {sections.length > 0 && (
+        <Box marginY={0}>
+          <Text dimColor>{'─'.repeat(40)}</Text>
+        </Box>
+      )}
+
+      {/* Sections Panel - only show if there are sections */}
+      {sections.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold>Sections</Text>
+          <SectionList
+            sections={sections}
+            selectedIndex={selectedSectionIndex}
+            onSelectedIndexChange={setSelectedSectionIndex}
+            isActive={true}
+          />
+        </Box>
+      )}
 
       {/* Help Footer */}
       <Box marginTop={1}>

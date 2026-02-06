@@ -137,3 +137,21 @@ export interface FeatureOverview {
     byStatus: Record<string, number>;
   };
 }
+
+/**
+ * Feature card for the feature-based Kanban board
+ */
+export interface BoardFeature extends Feature {
+  tasks: Task[];
+  taskCounts: { total: number; completed: number };
+}
+
+/**
+ * Column in the feature-based Kanban board
+ */
+export interface FeatureBoardColumn {
+  id: string;
+  title: string;
+  status: string;
+  features: BoardFeature[];
+}

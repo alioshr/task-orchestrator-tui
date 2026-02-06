@@ -1,128 +1,169 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { BoardColumn } from '../../ui/lib/types';
-import { KanbanCard } from './kanban-card';
+import type { FeatureBoardColumn } from '../../ui/lib/types';
+import { FeatureKanbanCard, getFeatureCardHeight } from './feature-kanban-card';
 import { getStatusColor } from '../../ui/lib/colors';
 import { useTheme } from '../../ui/context/theme-context';
 
 interface KanbanColumnProps {
-  column: BoardColumn;
+  column: FeatureBoardColumn;
   isActiveColumn: boolean;
+  selectedFeatureIndex: number;
+  expandedFeatureId: string | null;
   selectedTaskIndex: number;
   availableHeight?: number;
+  columnWidth?: number;
 }
 
 /**
  * KanbanColumn Component
  *
- * Displays a single column in the Kanban board with a status header and list of task cards.
- *
- * Example:
- * ┌─ IN_PROGRESS (3) ────┐
- * │                      │
- * │ Task title one...    │
- * │ ●●● HIGH             │
- * │                      │
- * │ Task title two...    │
- * │ ●●○ MEDIUM           │
- * │                      │
- * │ Task three...        │
- * │ ●○○ LOW              │
- * │                      │
- * └──────────────────────┘
+ * Displays a single column in the feature-based Kanban board.
+ * Uses variable-height scrolling based on actual card line counts.
  */
 export function KanbanColumn({
   column,
   isActiveColumn,
+  selectedFeatureIndex,
+  expandedFeatureId,
   selectedTaskIndex,
   availableHeight,
+  columnWidth: columnWidthProp,
 }: KanbanColumnProps) {
   const { theme } = useTheme();
   const statusColor = getStatusColor(column.status, theme);
-  const taskCount = column.tasks.length;
-
-  // Calculate visible tasks based on available height
-  // Each task card takes ~4 lines (border + title + priority + border)
-  // Column header takes ~2 lines
-  // Column padding and borders take ~4 lines
-  // Scroll indicators take ~2 lines each
-  const columnChromeLines = 8;
-  const linesPerTask = 5; // border-top + title + metadata + border-bottom + gap
+  const featureCount = column.features.length;
   const effectiveHeight = availableHeight ?? 30;
-  const maxVisibleTasks = Math.max(1, Math.floor((effectiveHeight - columnChromeLines) / linesPerTask));
+  const COLUMN_WIDTH = columnWidthProp ?? 40;
 
-  // Implement sliding window to keep selected task visible
+  // Chrome overhead: column border (2) + padding (2) + header (2) + gap (1) = ~7
+  const columnChromeLines = 7;
+  const maxContentLines = effectiveHeight - columnChromeLines;
+  const maxTaskHeight = Math.max(2, Math.floor((effectiveHeight - columnChromeLines) / 2));
+
+  // Compute heights for all cards
+  const cardHeights = column.features.map((feature) =>
+    getFeatureCardHeight(
+      feature,
+      feature.id === expandedFeatureId,
+      maxTaskHeight,
+      COLUMN_WIDTH - 4 // inner content width (column border + padding)
+    ) + 1 // +1 for gap between cards
+  );
+
+  // Variable-height sliding window
   let windowStart = 0;
-  let windowEnd = maxVisibleTasks;
+  let windowEnd = featureCount;
 
-  if (taskCount > maxVisibleTasks && selectedTaskIndex >= 0) {
-    // Calculate window position to keep selected task centered when possible
-    const halfWindow = Math.floor(maxVisibleTasks / 2);
-    windowStart = Math.max(0, selectedTaskIndex - halfWindow);
-    windowEnd = Math.min(taskCount, windowStart + maxVisibleTasks);
+  if (featureCount > 0 && selectedFeatureIndex >= 0) {
+    // Try to fit as many cards as possible around the selected one
+    // First, find a window that includes the selected feature
+    let totalLines = 0;
 
-    // Adjust if we're at the end
-    if (windowEnd === taskCount) {
-      windowStart = Math.max(0, windowEnd - maxVisibleTasks);
+    // Start from selected and expand outward
+    windowStart = selectedFeatureIndex;
+    windowEnd = selectedFeatureIndex + 1;
+    totalLines = cardHeights[selectedFeatureIndex] ?? 0;
+
+    // Expand upward and downward alternately
+    let expandUp = true;
+    while (true) {
+      if (expandUp && windowStart > 0) {
+        const nextHeight = cardHeights[windowStart - 1] ?? 0;
+        if (totalLines + nextHeight <= maxContentLines) {
+          windowStart--;
+          totalLines += nextHeight;
+          expandUp = false;
+          continue;
+        }
+      }
+      if (!expandUp && windowEnd < featureCount) {
+        const nextHeight = cardHeights[windowEnd] ?? 0;
+        if (totalLines + nextHeight <= maxContentLines) {
+          windowEnd++;
+          totalLines += nextHeight;
+          expandUp = true;
+          continue;
+        }
+      }
+      // Try the other direction if current didn't work
+      if (expandUp && windowEnd < featureCount) {
+        const nextHeight = cardHeights[windowEnd] ?? 0;
+        if (totalLines + nextHeight <= maxContentLines) {
+          windowEnd++;
+          totalLines += nextHeight;
+          continue;
+        }
+      }
+      if (!expandUp && windowStart > 0) {
+        const nextHeight = cardHeights[windowStart - 1] ?? 0;
+        if (totalLines + nextHeight <= maxContentLines) {
+          windowStart--;
+          totalLines += nextHeight;
+          continue;
+        }
+      }
+      break;
     }
   }
 
-  const visibleTasks = column.tasks.slice(windowStart, windowEnd);
-  const hasTasksAbove = windowStart > 0;
-  const hasTasksBelow = windowEnd < taskCount;
-  const tasksAboveCount = windowStart;
-  const tasksBelowCount = taskCount - windowEnd;
+  const visibleFeatures = column.features.slice(windowStart, windowEnd);
+  const hasFeaturesAbove = windowStart > 0;
+  const hasFeaturesBelow = windowEnd < featureCount;
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      width={30}
+      borderStyle={isActiveColumn ? 'bold' : 'round'}
+      borderColor={isActiveColumn ? theme.colors.accent : theme.colors.border}
+      width={COLUMN_WIDTH}
       height={effectiveHeight}
       paddingX={1}
       paddingY={1}
     >
-      {/* Column header with status and count */}
+      {/* Column header */}
       <Box marginBottom={1}>
         <Text color={statusColor} bold={isActiveColumn}>
-          {column.title} ({taskCount})
+          {column.title} ({featureCount})
         </Text>
       </Box>
 
-      {/* Task list */}
-      {taskCount === 0 ? (
+      {/* Feature list */}
+      {featureCount === 0 ? (
         <Box justifyContent="center" paddingY={2}>
-          <Text dimColor>No tasks</Text>
+          <Text dimColor>No features</Text>
         </Box>
       ) : (
         <Box flexDirection="column" gap={1}>
           {/* Top scroll indicator */}
-          {hasTasksAbove && (
+          {hasFeaturesAbove && (
             <Box justifyContent="center">
-              <Text dimColor>
-                ↑ {tasksAboveCount} more
-              </Text>
+              <Text dimColor>↑ {windowStart} more</Text>
             </Box>
           )}
 
-          {/* Visible tasks */}
-          {visibleTasks.map((task, index) => {
+          {/* Visible features */}
+          {visibleFeatures.map((feature, index) => {
             const actualIndex = windowStart + index;
+            const isFeatureSelected = isActiveColumn && actualIndex === selectedFeatureIndex;
+
             return (
-              <KanbanCard
-                key={task.id}
-                task={task}
-                isSelected={actualIndex === selectedTaskIndex}
+              <FeatureKanbanCard
+                key={feature.id}
+                feature={feature}
+                isSelected={isFeatureSelected}
+                isExpanded={feature.id === expandedFeatureId}
+                selectedTaskIndex={isFeatureSelected ? selectedTaskIndex : -1}
+                maxTaskHeight={maxTaskHeight}
+                columnWidth={COLUMN_WIDTH - 4}
               />
             );
           })}
 
           {/* Bottom scroll indicator */}
-          {hasTasksBelow && (
+          {hasFeaturesBelow && (
             <Box justifyContent="center">
-              <Text dimColor>
-                ↓ {tasksBelowCount} more
-              </Text>
+              <Text dimColor>↓ {featureCount - windowEnd} more</Text>
             </Box>
           )}
         </Box>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import { useKanban } from '../../ui/hooks/use-kanban';
+import { useFeatureKanban } from '../../ui/hooks/use-feature-kanban';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { KanbanBoard } from '../components/kanban-board';
 
@@ -8,22 +8,71 @@ interface KanbanViewProps {
   projectId: string;
   activeColumnIndex: number;
   onActiveColumnIndexChange: (index: number) => void;
+  selectedFeatureIndex: number;
+  onSelectedFeatureIndexChange: (index: number) => void;
+  expandedFeatureId: string | null;
+  onExpandedFeatureIdChange: (id: string | null) => void;
   selectedTaskIndex: number;
   onSelectedTaskIndexChange: (index: number) => void;
   onSelectTask: (taskId: string) => void;
   onBack: () => void;
+  // Filter state (lifted to App for persistence)
+  activeStatuses: Set<string>;
+  onActiveStatusesChange: (statuses: Set<string>) => void;
 }
 
-export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexChange, selectedTaskIndex, onSelectedTaskIndexChange, onSelectTask, onBack }: KanbanViewProps) {
+export function KanbanView({
+  projectId,
+  activeColumnIndex,
+  onActiveColumnIndexChange,
+  selectedFeatureIndex,
+  onSelectedFeatureIndexChange,
+  expandedFeatureId,
+  onExpandedFeatureIdChange,
+  selectedTaskIndex,
+  onSelectedTaskIndexChange,
+  onSelectTask,
+  onBack,
+  activeStatuses,
+  onActiveStatusesChange,
+}: KanbanViewProps) {
   const { adapter } = useAdapter();
-  const { columns, loading, error, refresh, moveTask } = useKanban(projectId);
+  const { columns, loading, error, refresh, moveFeature } = useFeatureKanban(projectId);
   const [projectName, setProjectName] = useState<string>('');
   const { stdout } = useStdout();
 
-  // Calculate available height for columns
-  // Total terminal rows - header (2 lines) - footer (2 lines) - padding (2 lines)
   const terminalRows = stdout?.rows ?? 24;
+  const terminalCols = stdout?.columns ?? 120;
   const availableHeight = Math.max(10, terminalRows - 6);
+
+  // Filter mode state (local — only active while interacting with chips)
+  const [isFilterMode, setIsFilterMode] = useState(false);
+  const [filterCursorIndex, setFilterCursorIndex] = useState(0);
+
+  // Auto-populate activeStatuses from data on first load (only if empty)
+  useEffect(() => {
+    if (activeStatuses.size === 0 && columns.length > 0) {
+      const populated = new Set<string>();
+      for (const col of columns) {
+        if (col.features.length > 0) {
+          populated.add(col.status);
+        }
+      }
+      // If nothing has features, show all columns
+      if (populated.size === 0) {
+        for (const col of columns) {
+          populated.add(col.status);
+        }
+      }
+      onActiveStatusesChange(populated);
+    }
+  }, [columns, activeStatuses.size, onActiveStatusesChange]);
+
+  // Compute filtered columns
+  const filteredColumns = useMemo(() => {
+    if (activeStatuses.size === 0) return columns;
+    return columns.filter((c) => activeStatuses.has(c.status));
+  }, [columns, activeStatuses]);
 
   // Fetch project name
   useEffect(() => {
@@ -36,29 +85,68 @@ export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexCh
     fetchProject();
   }, [adapter, projectId]);
 
-  // Reset selectedTaskIndex when activeColumnIndex changes
+  // Reset selectedFeatureIndex when activeColumnIndex changes
   useEffect(() => {
-    if (columns.length > 0 && activeColumnIndex < columns.length) {
-      const activeColumn = columns[activeColumnIndex];
+    if (filteredColumns.length > 0 && activeColumnIndex < filteredColumns.length) {
+      const activeColumn = filteredColumns[activeColumnIndex];
       if (activeColumn) {
-        if (activeColumn.tasks.length === 0) {
-          onSelectedTaskIndexChange(-1);
-        } else if (selectedTaskIndex >= activeColumn.tasks.length) {
-          onSelectedTaskIndexChange(0);
-        } else if (selectedTaskIndex < 0 && activeColumn.tasks.length > 0) {
-          onSelectedTaskIndexChange(0);
+        if (activeColumn.features.length === 0) {
+          onSelectedFeatureIndexChange(-1);
+        } else if (selectedFeatureIndex >= activeColumn.features.length) {
+          onSelectedFeatureIndexChange(0);
+        } else if (selectedFeatureIndex < 0 && activeColumn.features.length > 0) {
+          onSelectedFeatureIndexChange(0);
         }
       }
     }
-  }, [activeColumnIndex, columns, selectedTaskIndex, onSelectedTaskIndexChange]);
+  }, [activeColumnIndex, filteredColumns, selectedFeatureIndex, onSelectedFeatureIndexChange]);
+
+  // Collapse expanded feature if it no longer exists in the active column
+  useEffect(() => {
+    if (expandedFeatureId && filteredColumns.length > 0 && activeColumnIndex < filteredColumns.length) {
+      const activeColumn = filteredColumns[activeColumnIndex];
+      if (activeColumn && !activeColumn.features.some((f) => f.id === expandedFeatureId)) {
+        onExpandedFeatureIdChange(null);
+        onSelectedTaskIndexChange(-1);
+      }
+    }
+  }, [filteredColumns, activeColumnIndex, expandedFeatureId, onExpandedFeatureIdChange, onSelectedTaskIndexChange]);
+
+  // Clamp activeColumnIndex when filtered columns change
+  useEffect(() => {
+    if (filteredColumns.length > 0 && activeColumnIndex >= filteredColumns.length) {
+      onActiveColumnIndexChange(Math.max(0, filteredColumns.length - 1));
+    }
+  }, [filteredColumns.length, activeColumnIndex, onActiveColumnIndexChange]);
+
+  // Handle toggle status
+  const handleToggleStatus = (status: string) => {
+    const next = new Set(activeStatuses);
+    if (next.has(status)) {
+      // Don't allow removing the last status
+      if (next.size > 1) {
+        next.delete(status);
+      }
+    } else {
+      next.add(status);
+    }
+    onActiveStatusesChange(next);
+  };
 
   // Handle keyboard
   useInput((input, key) => {
+    // Don't handle keys in filter mode — board handles them
+    if (isFilterMode) return;
+
     if (key.escape) {
+      if (expandedFeatureId) {
+        // Let KanbanBoard handle Esc in task mode
+        return;
+      }
       onBack();
       return;
     }
-    if (input === 'b') {
+    if (input === 'b' && !expandedFeatureId) {
       onBack();
       return;
     }
@@ -68,27 +156,17 @@ export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexCh
     }
   });
 
-  // Handle column change
-  const handleColumnChange = (index: number) => {
-    onActiveColumnIndexChange(index);
-  };
-
-  // Handle task change
-  const handleTaskChange = (index: number) => {
-    onSelectedTaskIndexChange(index);
-  };
-
-  // Handle move task
-  const handleMoveTask = async (taskId: string, newStatus: string) => {
-    await moveTask(taskId, newStatus);
-    // After move, stay on same column but adjust index if needed
-    if (columns.length > 0 && activeColumnIndex < columns.length) {
-      const activeColumn = columns[activeColumnIndex];
+  // Handle move feature
+  const handleMoveFeature = async (featureId: string, newStatus: string) => {
+    await moveFeature(featureId, newStatus);
+    // After move, adjust indices if needed
+    if (filteredColumns.length > 0 && activeColumnIndex < filteredColumns.length) {
+      const activeColumn = filteredColumns[activeColumnIndex];
       if (activeColumn) {
-        if (activeColumn.tasks.length === 0) {
-          onSelectedTaskIndexChange(-1);
-        } else if (selectedTaskIndex >= activeColumn.tasks.length) {
-          onSelectedTaskIndexChange(Math.max(0, activeColumn.tasks.length - 1));
+        if (activeColumn.features.length === 0) {
+          onSelectedFeatureIndexChange(-1);
+        } else if (selectedFeatureIndex >= activeColumn.features.length) {
+          onSelectedFeatureIndexChange(Math.max(0, activeColumn.features.length - 1));
         }
       }
     }
@@ -110,15 +188,22 @@ export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexCh
     );
   }
 
-  // Clamp activeColumnIndex and selectedTaskIndex if data changed
-  const clampedActiveColumnIndex = Math.min(activeColumnIndex, Math.max(0, columns.length - 1));
-  const effectiveActiveColumnIndex = columns.length > 0 ? clampedActiveColumnIndex : 0;
+  // Clamp indices
+  const clampedActiveColumnIndex = Math.min(activeColumnIndex, Math.max(0, filteredColumns.length - 1));
+  const effectiveActiveColumnIndex = filteredColumns.length > 0 ? clampedActiveColumnIndex : 0;
 
-  const activeColumn = columns[effectiveActiveColumnIndex];
-  const maxTaskIndex = activeColumn ? Math.max(0, activeColumn.tasks.length - 1) : 0;
-  const clampedSelectedTaskIndex = activeColumn && activeColumn.tasks.length > 0
-    ? Math.min(selectedTaskIndex, maxTaskIndex)
+  const activeColumn = filteredColumns[effectiveActiveColumnIndex];
+  const maxFeatureIndex = activeColumn ? Math.max(0, activeColumn.features.length - 1) : 0;
+  const clampedFeatureIndex = activeColumn && activeColumn.features.length > 0
+    ? Math.min(selectedFeatureIndex, maxFeatureIndex)
     : -1;
+
+  const isTaskMode = expandedFeatureId !== null;
+  const footerHint = isFilterMode
+    ? 'h/l: navigate chips  Space: toggle  Esc: exit filter'
+    : isTaskMode
+      ? 'j/k: tasks  Enter: open task  Esc/h: collapse  r: refresh'
+      : 'h/l: columns  j/k: features  Enter: expand  m: move  f: filter  r: refresh  Esc: back';
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -126,31 +211,40 @@ export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexCh
       <Box marginBottom={1}>
         <Text bold>{projectName}</Text>
         <Text> - </Text>
-        <Text>Kanban Board</Text>
+        <Text>Feature Board</Text>
       </Box>
 
       {/* Kanban Board */}
-      {columns.length === 0 ? (
-        <Text dimColor>No tasks in this project yet.</Text>
+      {filteredColumns.length === 0 ? (
+        <Text dimColor>No features in this project yet.</Text>
       ) : (
         <KanbanBoard
-          columns={columns}
+          columns={filteredColumns}
           activeColumnIndex={effectiveActiveColumnIndex}
-          selectedTaskIndex={clampedSelectedTaskIndex}
-          onColumnChange={handleColumnChange}
-          onTaskChange={handleTaskChange}
+          selectedFeatureIndex={clampedFeatureIndex}
+          expandedFeatureId={expandedFeatureId}
+          selectedTaskIndex={selectedTaskIndex}
+          onColumnChange={onActiveColumnIndexChange}
+          onFeatureChange={onSelectedFeatureIndexChange}
+          onExpandFeature={onExpandedFeatureIdChange}
+          onTaskChange={onSelectedTaskIndexChange}
           onSelectTask={onSelectTask}
-          onMoveTask={handleMoveTask}
+          onMoveFeature={handleMoveFeature}
           isActive={true}
           availableHeight={availableHeight}
+          availableWidth={terminalCols}
+          activeStatuses={activeStatuses}
+          isFilterMode={isFilterMode}
+          filterCursorIndex={filterCursorIndex}
+          onToggleStatus={handleToggleStatus}
+          onFilterCursorChange={setFilterCursorIndex}
+          onFilterModeChange={setIsFilterMode}
         />
       )}
 
       {/* Footer hints */}
       <Box marginTop={1}>
-        <Text dimColor>
-          h/l: columns  j/k: tasks  Enter: open  m: move  r: refresh  Esc: back
-        </Text>
+        <Text dimColor>{footerHint}</Text>
       </Box>
     </Box>
   );
