@@ -45,7 +45,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
 
   // Handle keyboard navigation
   useInput((input, key) => {
-    if (key.escape) {
+    if (key.escape || input === 'h' || key.leftArrow) {
       onBack();
     }
     if (input === 'r') {
@@ -155,7 +155,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
       {/* Help Footer */}
       <Box marginTop={1}>
         <Text dimColor>
-          ESC: Back | r: Refresh{tasks.length > 0 ? ' | j/k: Navigate | Enter: Select Task' : ''}
+          ESC/h: Back | r: Refresh{tasks.length > 0 ? ' | j/k: Navigate | Enter: Select Task' : ''}
         </Text>
       </Box>
     </Box>

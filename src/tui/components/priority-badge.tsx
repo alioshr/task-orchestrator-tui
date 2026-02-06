@@ -5,11 +5,12 @@ import { useTheme } from '../../ui/context/theme-context';
 
 interface PriorityBadgeProps {
   priority: string;
+  isSelected?: boolean;
 }
 
-export function PriorityBadge({ priority }: PriorityBadgeProps) {
+export function PriorityBadge({ priority, isSelected = false }: PriorityBadgeProps) {
   const { theme } = useTheme();
-  const color = getPriorityColor(priority as any, theme);
+  const color = isSelected ? theme.colors.foreground : getPriorityColor(priority as any, theme);
   const dots = getPriorityDots(priority as any);
   return <Text color={color}>{dots}</Text>;
 }

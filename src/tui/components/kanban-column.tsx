@@ -9,7 +9,7 @@ interface KanbanColumnProps {
   column: BoardColumn;
   isActiveColumn: boolean;
   selectedTaskIndex: number;
-  maxVisibleTasks?: number;
+  availableHeight?: number;
 }
 
 /**
@@ -35,20 +35,50 @@ export function KanbanColumn({
   column,
   isActiveColumn,
   selectedTaskIndex,
-  maxVisibleTasks = 10,
+  availableHeight,
 }: KanbanColumnProps) {
   const { theme } = useTheme();
   const statusColor = getStatusColor(column.status, theme);
   const taskCount = column.tasks.length;
-  const hasMoreTasks = taskCount > maxVisibleTasks;
-  const visibleTasks = hasMoreTasks ? column.tasks.slice(0, maxVisibleTasks) : column.tasks;
-  const remainingCount = taskCount - maxVisibleTasks;
+
+  // Calculate visible tasks based on available height
+  // Each task card takes ~4 lines (border + title + priority + border)
+  // Column header takes ~2 lines
+  // Column padding and borders take ~4 lines
+  // Scroll indicators take ~2 lines each
+  const columnChromeLines = 8;
+  const linesPerTask = 5; // border-top + title + metadata + border-bottom + gap
+  const effectiveHeight = availableHeight ?? 30;
+  const maxVisibleTasks = Math.max(1, Math.floor((effectiveHeight - columnChromeLines) / linesPerTask));
+
+  // Implement sliding window to keep selected task visible
+  let windowStart = 0;
+  let windowEnd = maxVisibleTasks;
+
+  if (taskCount > maxVisibleTasks && selectedTaskIndex >= 0) {
+    // Calculate window position to keep selected task centered when possible
+    const halfWindow = Math.floor(maxVisibleTasks / 2);
+    windowStart = Math.max(0, selectedTaskIndex - halfWindow);
+    windowEnd = Math.min(taskCount, windowStart + maxVisibleTasks);
+
+    // Adjust if we're at the end
+    if (windowEnd === taskCount) {
+      windowStart = Math.max(0, windowEnd - maxVisibleTasks);
+    }
+  }
+
+  const visibleTasks = column.tasks.slice(windowStart, windowEnd);
+  const hasTasksAbove = windowStart > 0;
+  const hasTasksBelow = windowEnd < taskCount;
+  const tasksAboveCount = windowStart;
+  const tasksBelowCount = taskCount - windowEnd;
 
   return (
     <Box
       flexDirection="column"
       borderStyle="round"
       width={30}
+      height={effectiveHeight}
       paddingX={1}
       paddingY={1}
     >
@@ -66,19 +96,32 @@ export function KanbanColumn({
         </Box>
       ) : (
         <Box flexDirection="column" gap={1}>
-          {visibleTasks.map((task, index) => (
-            <KanbanCard
-              key={task.id}
-              task={task}
-              isSelected={index === selectedTaskIndex}
-            />
-          ))}
-
-          {/* Scroll indicator */}
-          {hasMoreTasks && (
-            <Box justifyContent="center" paddingTop={1}>
+          {/* Top scroll indicator */}
+          {hasTasksAbove && (
+            <Box justifyContent="center">
               <Text dimColor>
-                ↓ {remainingCount} more
+                ↑ {tasksAboveCount} more
+              </Text>
+            </Box>
+          )}
+
+          {/* Visible tasks */}
+          {visibleTasks.map((task, index) => {
+            const actualIndex = windowStart + index;
+            return (
+              <KanbanCard
+                key={task.id}
+                task={task}
+                isSelected={actualIndex === selectedTaskIndex}
+              />
+            );
+          })}
+
+          {/* Bottom scroll indicator */}
+          {hasTasksBelow && (
+            <Box justifyContent="center">
+              <Text dimColor>
+                ↓ {tasksBelowCount} more
               </Text>
             </Box>
           )}

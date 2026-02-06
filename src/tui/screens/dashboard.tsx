@@ -7,12 +7,14 @@ import { timeAgo } from '../../ui/lib/format';
 import type { ProjectWithCounts } from '../../ui/hooks/use-data';
 
 interface DashboardProps {
+  selectedIndex: number;
+  onSelectedIndexChange: (index: number) => void;
   onSelectProject: (projectId: string) => void;
+  onBack?: () => void;
 }
 
-export function Dashboard({ onSelectProject }: DashboardProps) {
+export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProject, onBack }: DashboardProps) {
   const { projects, loading, error } = useProjects();
-  const [selectedIndex, setSelectedIndex] = useState(0);
 
   if (loading) {
     return (
@@ -48,8 +50,8 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
       key: 'status',
       label: 'Status',
       width: 20,
-      render: (_value: unknown, row: ProjectWithCounts) => (
-        <StatusBadge status={row.status} />
+      render: (_value: unknown, row: ProjectWithCounts, context?: { isSelected: boolean }) => (
+        <StatusBadge status={row.status} isSelected={context?.isSelected} />
       ),
     },
     {
@@ -67,14 +69,19 @@ export function Dashboard({ onSelectProject }: DashboardProps) {
     },
   ];
 
+  // Clamp selectedIndex if data changed
+  const clampedSelectedIndex = Math.min(selectedIndex, Math.max(0, projects.length - 1));
+  const effectiveSelectedIndex = projects.length > 0 ? clampedSelectedIndex : 0;
+
   return (
     <Box paddingX={1} paddingY={1} flexDirection="column">
       <EntityTable
         columns={columns}
         data={projects}
-        selectedIndex={selectedIndex}
-        onSelectedIndexChange={setSelectedIndex}
+        selectedIndex={effectiveSelectedIndex}
+        onSelectedIndexChange={onSelectedIndexChange}
         onSelect={(project) => onSelectProject(project.id)}
+        onBack={onBack}
       />
     </Box>
   );

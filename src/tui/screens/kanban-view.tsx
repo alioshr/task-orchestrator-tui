@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { useKanban } from '../../ui/hooks/use-kanban';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { KanbanBoard } from '../components/kanban-board';
 
 interface KanbanViewProps {
   projectId: string;
+  activeColumnIndex: number;
+  onActiveColumnIndexChange: (index: number) => void;
+  selectedTaskIndex: number;
+  onSelectedTaskIndexChange: (index: number) => void;
   onSelectTask: (taskId: string) => void;
   onBack: () => void;
 }
 
-export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps) {
+export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexChange, selectedTaskIndex, onSelectedTaskIndexChange, onSelectTask, onBack }: KanbanViewProps) {
   const { adapter } = useAdapter();
   const { columns, loading, error, refresh, moveTask } = useKanban(projectId);
   const [projectName, setProjectName] = useState<string>('');
-  const [activeColumnIndex, setActiveColumnIndex] = useState(0);
-  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
+  const { stdout } = useStdout();
+
+  // Calculate available height for columns
+  // Total terminal rows - header (2 lines) - footer (2 lines) - padding (2 lines)
+  const terminalRows = stdout?.rows ?? 24;
+  const availableHeight = Math.max(10, terminalRows - 6);
 
   // Fetch project name
   useEffect(() => {
@@ -34,15 +42,15 @@ export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps)
       const activeColumn = columns[activeColumnIndex];
       if (activeColumn) {
         if (activeColumn.tasks.length === 0) {
-          setSelectedTaskIndex(-1);
+          onSelectedTaskIndexChange(-1);
         } else if (selectedTaskIndex >= activeColumn.tasks.length) {
-          setSelectedTaskIndex(0);
+          onSelectedTaskIndexChange(0);
         } else if (selectedTaskIndex < 0 && activeColumn.tasks.length > 0) {
-          setSelectedTaskIndex(0);
+          onSelectedTaskIndexChange(0);
         }
       }
     }
-  }, [activeColumnIndex, columns, selectedTaskIndex]);
+  }, [activeColumnIndex, columns, selectedTaskIndex, onSelectedTaskIndexChange]);
 
   // Handle keyboard
   useInput((input, key) => {
@@ -58,12 +66,12 @@ export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps)
 
   // Handle column change
   const handleColumnChange = (index: number) => {
-    setActiveColumnIndex(index);
+    onActiveColumnIndexChange(index);
   };
 
   // Handle task change
   const handleTaskChange = (index: number) => {
-    setSelectedTaskIndex(index);
+    onSelectedTaskIndexChange(index);
   };
 
   // Handle move task
@@ -74,9 +82,9 @@ export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps)
       const activeColumn = columns[activeColumnIndex];
       if (activeColumn) {
         if (activeColumn.tasks.length === 0) {
-          setSelectedTaskIndex(-1);
+          onSelectedTaskIndexChange(-1);
         } else if (selectedTaskIndex >= activeColumn.tasks.length) {
-          setSelectedTaskIndex(Math.max(0, activeColumn.tasks.length - 1));
+          onSelectedTaskIndexChange(Math.max(0, activeColumn.tasks.length - 1));
         }
       }
     }
@@ -98,6 +106,16 @@ export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps)
     );
   }
 
+  // Clamp activeColumnIndex and selectedTaskIndex if data changed
+  const clampedActiveColumnIndex = Math.min(activeColumnIndex, Math.max(0, columns.length - 1));
+  const effectiveActiveColumnIndex = columns.length > 0 ? clampedActiveColumnIndex : 0;
+
+  const activeColumn = columns[effectiveActiveColumnIndex];
+  const maxTaskIndex = activeColumn ? Math.max(0, activeColumn.tasks.length - 1) : 0;
+  const clampedSelectedTaskIndex = activeColumn && activeColumn.tasks.length > 0
+    ? Math.min(selectedTaskIndex, maxTaskIndex)
+    : -1;
+
   return (
     <Box flexDirection="column" padding={1}>
       {/* Header */}
@@ -113,13 +131,14 @@ export function KanbanView({ projectId, onSelectTask, onBack }: KanbanViewProps)
       ) : (
         <KanbanBoard
           columns={columns}
-          activeColumnIndex={activeColumnIndex}
-          selectedTaskIndex={selectedTaskIndex}
+          activeColumnIndex={effectiveActiveColumnIndex}
+          selectedTaskIndex={clampedSelectedTaskIndex}
           onColumnChange={handleColumnChange}
           onTaskChange={handleTaskChange}
           onSelectTask={onSelectTask}
           onMoveTask={handleMoveTask}
           isActive={true}
+          availableHeight={availableHeight}
         />
       )}
 

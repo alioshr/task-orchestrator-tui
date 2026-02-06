@@ -138,4 +138,14 @@ describe('FeatureDetail', () => {
     const output = lastFrame();
     expect(output).toContain('Feature not found');
   });
+
+  test('should call onBack when h is pressed', async () => {
+    const { stdin } = renderWithProviders('feature-1');
+
+    // Wait for async load
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    stdin.write('h');
+    expect(onBack).toHaveBeenCalled();
+  });
 });

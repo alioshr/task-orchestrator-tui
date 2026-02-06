@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Project, Task, Section, EntityType } from 'task-orchestrator-bun/src/domain/types';
+import type { Project, Task, Section, EntityType, TaskStatus, Priority, FeatureStatus } from 'task-orchestrator-bun/src/domain/types';
 import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo } from '../lib/types';
+import type { TreeRow } from '../../tui/components/tree-view';
 
 /**
  * Task counts structure
@@ -165,23 +166,286 @@ export function useProjectOverview(id: string) {
 }
 
 /**
+ * Status order for grouping tasks - active statuses first, then terminal statuses
+ */
+const STATUS_ORDER: TaskStatus[] = [
+  'PENDING' as TaskStatus,
+  'IN_PROGRESS' as TaskStatus,
+  'IN_REVIEW' as TaskStatus,
+  'BLOCKED' as TaskStatus,
+  'ON_HOLD' as TaskStatus,
+  'COMPLETED' as TaskStatus,
+  'CANCELLED' as TaskStatus,
+];
+
+/**
+ * Priority order for sorting tasks within status groups
+ */
+const PRIORITY_ORDER: Record<Priority, number> = {
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
+
+/**
+ * Display names for task statuses
+ */
+const STATUS_DISPLAY_NAMES: Record<string, string> = {
+  BACKLOG: 'Backlog',
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  IN_REVIEW: 'In Review',
+  CHANGES_REQUESTED: 'Changes Requested',
+  TESTING: 'Testing',
+  READY_FOR_QA: 'Ready for QA',
+  INVESTIGATING: 'Investigating',
+  BLOCKED: 'Blocked',
+  ON_HOLD: 'On Hold',
+  DEPLOYED: 'Deployed',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  DEFERRED: 'Deferred',
+};
+
+/**
+ * Build status-grouped tree rows for tasks
+ * Groups tasks by status, then by feature within each status
+ *
+ * @param tasks - All tasks to group
+ * @param features - Features to lookup task feature info
+ * @param expandedGroups - Set of expanded group IDs (both status groups and composite feature keys)
+ * @returns TreeRow[] grouped by status → feature → tasks
+ */
+function buildStatusGroupedRows(
+  tasks: Task[],
+  features: FeatureWithTasks[],
+  expandedGroups: Set<string>
+): TreeRow[] {
+  const rows: TreeRow[] = [];
+
+  const featureMap = new Map<string, FeatureWithTasks>();
+  for (const feature of features) {
+    featureMap.set(feature.id, feature);
+  }
+
+  // Group tasks by status
+  const tasksByStatus = new Map<TaskStatus, Task[]>();
+  for (const task of tasks) {
+    const status = task.status as TaskStatus;
+    const group = tasksByStatus.get(status) || [];
+    group.push(task);
+    tasksByStatus.set(status, group);
+  }
+
+  const featureStatusToTaskStatus = (status: FeatureStatus): TaskStatus => {
+    switch (status) {
+      case 'COMPLETED':
+      case 'DEPLOYED':
+        return 'COMPLETED' as TaskStatus;
+      case 'BLOCKED':
+        return 'BLOCKED' as TaskStatus;
+      case 'ON_HOLD':
+        return 'ON_HOLD' as TaskStatus;
+      case 'ARCHIVED':
+        return 'CANCELLED' as TaskStatus;
+      case 'PENDING_REVIEW':
+        return 'IN_REVIEW' as TaskStatus;
+      case 'IN_DEVELOPMENT':
+      case 'TESTING':
+      case 'VALIDATING':
+        return 'IN_PROGRESS' as TaskStatus;
+      case 'PLANNING':
+      case 'DRAFT':
+      default:
+        return 'PENDING' as TaskStatus;
+    }
+  };
+
+  // Only inject empty features into status buckets to avoid duplicate feature rows across statuses.
+  const featureHasTasks = new Set<string>();
+  for (const task of tasks) {
+    if (task.featureId) {
+      featureHasTasks.add(task.featureId);
+    }
+  }
+
+  // Group features by their mapped status bucket
+  const featuresByStatus = new Map<TaskStatus, FeatureWithTasks[]>();
+  for (const feature of features) {
+    if (featureHasTasks.has(feature.id)) {
+      continue;
+    }
+    const mappedStatus = featureStatusToTaskStatus(feature.status as FeatureStatus);
+    const group = featuresByStatus.get(mappedStatus) || [];
+    group.push(feature);
+    featuresByStatus.set(mappedStatus, group);
+  }
+
+  // Build rows in status order
+  for (const status of STATUS_ORDER) {
+    const statusTasks = tasksByStatus.get(status) || [];
+    const statusFeatures = featuresByStatus.get(status) || [];
+    if (statusTasks.length === 0 && statusFeatures.length === 0) continue;
+
+    const statusGroupId = status;
+    const statusExpanded = expandedGroups.has(statusGroupId);
+    const statusExpandable = statusTasks.length > 0 || statusFeatures.length > 0;
+
+    // Add status group row (depth 0)
+    rows.push({
+      type: 'group',
+      id: statusGroupId,
+      label: STATUS_DISPLAY_NAMES[status] || status,
+      status,
+      taskCount: statusTasks.length,
+      expanded: statusExpanded,
+      depth: 0,
+      expandable: statusExpandable,
+    });
+
+    // If status group is expanded, group tasks by feature
+    if (statusExpanded) {
+      // Group tasks by featureId (with null for unassigned)
+      const tasksByFeature = new Map<string | null, Task[]>();
+      for (const task of statusTasks) {
+        const featureId = task.featureId || null;
+        const group = tasksByFeature.get(featureId) || [];
+        group.push(task);
+        tasksByFeature.set(featureId, group);
+      }
+
+      // Sort tasks within each feature by priority (descending) then title
+      for (const [_, featureTasks] of tasksByFeature.entries()) {
+        featureTasks.sort((a, b) => {
+          const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
+          if (priorityDiff !== 0) return priorityDiff;
+          return a.title.localeCompare(b.title);
+        });
+      }
+
+      // Build feature sub-groups
+      // First, collect features that have tasks in this status (sorted by creation date)
+      const tasksByFeatureId = new Map<string, Task[]>();
+      for (const [featureId, featureTasks] of tasksByFeature.entries()) {
+        if (featureId !== null) {
+          tasksByFeatureId.set(featureId, featureTasks);
+        }
+      }
+
+      // Sort mapped features by creation date (ascending, oldest first), including empty features
+      const statusFeatureMap = new Map<string, FeatureWithTasks>();
+      for (const feature of statusFeatures) {
+        statusFeatureMap.set(feature.id, feature);
+      }
+      for (const featureId of tasksByFeatureId.keys()) {
+        const feature = featureMap.get(featureId);
+        if (feature) {
+          statusFeatureMap.set(feature.id, feature);
+        }
+      }
+
+      const sortedStatusFeatures = [...statusFeatureMap.values()].sort((a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      // Add feature sub-group rows
+      for (const feature of sortedStatusFeatures) {
+        const featureId = feature.id;
+        const featureTasks = tasksByFeatureId.get(featureId) || [];
+        const compositeFeatureId = `${status}:${featureId}`;
+        const featureExpandable = featureTasks.length > 0;
+        const featureExpanded = featureExpandable && expandedGroups.has(compositeFeatureId);
+
+        // Add feature group row (depth 1)
+        rows.push({
+          type: 'group',
+          id: compositeFeatureId,
+          label: feature.name,
+          status: feature.status,
+          taskCount: featureTasks.length,
+          expanded: featureExpanded,
+          depth: 1,
+          expandable: featureExpandable,
+          featureId,
+        });
+
+        // Add task rows if feature is expanded (depth 1)
+        if (featureExpanded) {
+          featureTasks.forEach((task, index) => {
+            const isLast = index === featureTasks.length - 1;
+            rows.push({
+              type: 'task',
+              task,
+              isLast,
+              depth: 2,
+              // No featureName needed - tasks are nested under their feature
+            });
+          });
+        }
+      }
+
+      // Add unassigned tasks (if any)
+      const unassignedTasks = tasksByFeature.get(null);
+      if (unassignedTasks && unassignedTasks.length > 0) {
+        const unassignedId = `${status}:unassigned`;
+        const unassignedExpanded = expandedGroups.has(unassignedId);
+
+        // Sort unassigned tasks by priority (descending) then title
+        unassignedTasks.sort((a, b) => {
+          const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
+          if (priorityDiff !== 0) return priorityDiff;
+          return a.title.localeCompare(b.title);
+        });
+
+        // Add unassigned group row (depth 1)
+        rows.push({
+          type: 'group',
+          id: unassignedId,
+          label: 'Unassigned',
+          status: status, // Use parent status for consistency
+          taskCount: unassignedTasks.length,
+          expanded: unassignedExpanded,
+          depth: 1,
+        });
+
+        // Add task rows if unassigned group is expanded (depth 1)
+        if (unassignedExpanded) {
+          unassignedTasks.forEach((task, index) => {
+            const isLast = index === unassignedTasks.length - 1;
+            rows.push({
+              type: 'task',
+              task,
+              isLast,
+              depth: 2,
+            });
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+/**
  * Hook for fetching a project tree with features and their tasks.
  * Also includes unassigned tasks (tasks without a feature).
  *
  * @param projectId - The project ID
- * @returns Project, features with nested tasks, unassigned tasks, task counts, loading/error states, and refresh function
+ * @returns Project, features with nested tasks, unassigned tasks, task counts, status-grouped rows, loading/error states, and refresh function
  *
  * @example
  * ```tsx
- * const { project, features, unassignedTasks, taskCounts, loading, error, refresh } = useProjectTree('proj-123');
+ * const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree('proj-123');
  * ```
  */
-export function useProjectTree(projectId: string) {
+export function useProjectTree(projectId: string, expandedGroups: Set<string> = new Set()) {
   const { adapter } = useAdapter();
   const [project, setProject] = useState<Project | null>(null);
   const [features, setFeatures] = useState<FeatureWithTasks[]>([]);
   const [unassignedTasks, setUnassignedTasks] = useState<Task[]>([]);
   const [taskCounts, setTaskCounts] = useState<TaskCounts>({ total: 0, completed: 0 });
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -215,21 +479,27 @@ export function useProjectTree(projectId: string) {
 
     const projectData = projectResult.data;
     const allFeatures = featuresResult.data;
-    const allTasks = tasksResult.data;
+    const tasks = tasksResult.data;
+
+    // Sort features by creation date ascending (oldest first)
+    const sortedFeatures = [...allFeatures].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
 
     // Build feature tree with nested tasks
-    const featuresWithTasks: FeatureWithTasks[] = allFeatures.map((feature) => ({
+    const featuresWithTasks: FeatureWithTasks[] = sortedFeatures.map((feature) => ({
       ...feature,
-      tasks: allTasks.filter((task) => task.featureId === feature.id),
+      tasks: tasks.filter((task) => task.featureId === feature.id),
     }));
 
     // Find unassigned tasks (no featureId)
-    const unassigned = allTasks.filter((task) => !task.featureId);
+    const unassigned = tasks.filter((task) => !task.featureId);
 
     setProject(projectData);
     setFeatures(featuresWithTasks);
     setUnassignedTasks(unassigned);
-    setTaskCounts(calculateTaskCounts(allTasks));
+    setAllTasks(tasks);
+    setTaskCounts(calculateTaskCounts(tasks));
     setLoading(false);
   }, [adapter, projectId]);
 
@@ -237,11 +507,17 @@ export function useProjectTree(projectId: string) {
     loadProjectTree();
   }, [loadProjectTree]);
 
+  // Build status-grouped rows using useMemo to recalculate when data changes
+  const statusGroupedRows = useMemo(() => {
+    return buildStatusGroupedRows(allTasks, features, expandedGroups);
+  }, [allTasks, features, expandedGroups]);
+
   return {
     project,
     features,
     unassignedTasks,
     taskCounts,
+    statusGroupedRows,
     loading,
     error,
     refresh: loadProjectTree,

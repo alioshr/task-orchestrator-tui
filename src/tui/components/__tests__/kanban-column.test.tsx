@@ -144,23 +144,24 @@ describe('KanbanColumn', () => {
     expect(output).toContain('Task 2');
   });
 
-  test('should show scroll indicator when tasks exceed maxVisibleTasks', () => {
+  test('should show scroll indicator when tasks exceed visible limit', () => {
     const tasks = Array.from({ length: 15 }, (_, i) =>
       createMockTask({ title: `Task ${i + 1}` })
     );
     const column = createMockColumn({ tasks });
 
+    // availableHeight of 50 = 50 - 8 (chrome) = 42 / 5 (lines per task) = 8 visible tasks
     const { lastFrame } = renderWithTheme(
       <KanbanColumn
         column={column}
         isActiveColumn={false}
         selectedTaskIndex={-1}
-        maxVisibleTasks={10}
+        availableHeight={50}
       />
     );
 
     const output = lastFrame();
-    expect(output).toContain('↓ 5 more');
+    expect(output).toContain('↓ 7 more');
   });
 
   test('should not show scroll indicator when tasks are within limit', () => {
@@ -169,12 +170,13 @@ describe('KanbanColumn', () => {
     );
     const column = createMockColumn({ tasks });
 
+    // availableHeight of 50 allows 10 visible tasks, we only have 5
     const { lastFrame } = renderWithTheme(
       <KanbanColumn
         column={column}
         isActiveColumn={false}
         selectedTaskIndex={-1}
-        maxVisibleTasks={10}
+        availableHeight={50}
       />
     );
 
@@ -188,24 +190,25 @@ describe('KanbanColumn', () => {
     );
     const column = createMockColumn({ tasks });
 
+    // availableHeight of 28 = 28 - 8 (chrome) = 20 / 5 (lines per task) = 4 visible tasks
     const { lastFrame } = renderWithTheme(
       <KanbanColumn
         column={column}
         isActiveColumn={false}
         selectedTaskIndex={-1}
-        maxVisibleTasks={5}
+        availableHeight={28}
       />
     );
 
     const output = lastFrame();
-    // Should show first 5 tasks
+    // Should show first 4 tasks
     expect(output).toContain('Task 1');
-    expect(output).toContain('Task 5');
-    // Should not show tasks beyond maxVisibleTasks
-    expect(output).not.toContain('Task 6');
+    expect(output).toContain('Task 4');
+    // Should not show tasks beyond visible limit
+    expect(output).not.toContain('Task 5');
     expect(output).not.toContain('Task 15');
     // Should show scroll indicator
-    expect(output).toContain('↓ 10 more');
+    expect(output).toContain('↓ 11 more');
   });
 
   test('should render column with different statuses', () => {
@@ -268,5 +271,56 @@ describe('KanbanColumn', () => {
     const output = lastFrame();
     expect(output).toContain('High priority task');
     expect(output).toContain('●●●');
+  });
+
+  test('should implement sliding window to keep selected task visible', () => {
+    const tasks = Array.from({ length: 20 }, (_, i) =>
+      createMockTask({ title: `Task ${i + 1}` })
+    );
+    const column = createMockColumn({ tasks });
+
+    // availableHeight of 28 = 5 visible tasks
+    // Select task 10 (index 9) - should be in the middle of the window
+    const { lastFrame } = renderWithTheme(
+      <KanbanColumn
+        column={column}
+        isActiveColumn={true}
+        selectedTaskIndex={9}
+        availableHeight={28}
+      />
+    );
+
+    const output = lastFrame();
+    // Should show scroll indicators on both sides when in the middle
+    expect(output).toContain('↑');
+    expect(output).toContain('more');
+    expect(output).toContain('↓');
+    expect(output).toContain('more');
+  });
+
+  test('should show top scroll indicator when scrolled down', () => {
+    const tasks = Array.from({ length: 20 }, (_, i) =>
+      createMockTask({ title: `Task ${i + 1}` })
+    );
+    const column = createMockColumn({ tasks });
+
+    // availableHeight of 28 = 5 visible tasks
+    // Select last task - window should be at the end
+    const { lastFrame } = renderWithTheme(
+      <KanbanColumn
+        column={column}
+        isActiveColumn={true}
+        selectedTaskIndex={19}
+        availableHeight={28}
+      />
+    );
+
+    const output = lastFrame();
+    // Should show last tasks
+    expect(output).toContain('Task 20');
+    // Should show top scroll indicator
+    expect(output).toContain('↑');
+    // Should not show bottom scroll indicator
+    expect(output).not.toContain('↓');
   });
 });

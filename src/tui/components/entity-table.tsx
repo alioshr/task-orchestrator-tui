@@ -1,11 +1,12 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
+import { useTheme } from '../../ui/context/theme-context';
 
 export interface Column<T> {
   key: keyof T | string;
   label: string;
   width?: number;
-  render?: (value: unknown, row: T) => React.ReactNode;
+  render?: (value: unknown, row: T, context?: { isSelected: boolean }) => React.ReactNode;
 }
 
 export interface EntityTableProps<T> {
@@ -14,6 +15,7 @@ export interface EntityTableProps<T> {
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
   onSelect?: (row: T) => void;
+  onBack?: () => void;
   isActive?: boolean;
   getRowKey?: (row: T, index: number) => string;
 }
@@ -24,9 +26,12 @@ export function EntityTable<T>({
   selectedIndex,
   onSelectedIndexChange,
   onSelect,
+  onBack,
   isActive = true,
   getRowKey,
 }: EntityTableProps<T>) {
+  const { theme } = useTheme();
+
   useInput((input, key) => {
     if (!isActive || data.length === 0) return;
 
@@ -36,19 +41,21 @@ export function EntityTable<T>({
     } else if (input === 'k' || key.upArrow) {
       const prevIndex = (selectedIndex - 1 + data.length) % data.length;
       onSelectedIndexChange(prevIndex);
-    } else if (key.return && onSelect) {
+    } else if ((key.return || input === 'l' || key.rightArrow) && onSelect) {
       const row = data[selectedIndex];
       if (row !== undefined) {
         onSelect(row);
       }
+    } else if (input === 'h' || key.leftArrow) {
+      onBack?.();
     }
   }, { isActive });
 
-  const renderCellValue = (column: Column<T>, row: T): React.ReactNode => {
+  const renderCellValue = (column: Column<T>, row: T, isSelected: boolean): React.ReactNode => {
     const value = row[column.key as keyof T];
 
     if (column.render) {
-      return column.render(value, row);
+      return column.render(value, row, { isSelected });
     }
 
     if (value === null || value === undefined) {
@@ -85,13 +92,15 @@ export function EntityTable<T>({
       {data.map((row, rowIndex) => {
         const isSelected = rowIndex === selectedIndex;
         const rowKey = rowKeyFn(row, rowIndex);
+        const rowBackgroundColor = isSelected ? theme.colors.selection : undefined;
+        const rowTextColor = isSelected ? theme.colors.foreground : undefined;
 
         return (
-          <Box key={rowKey}>
+          <Box key={rowKey} backgroundColor={rowBackgroundColor}>
             {columns.map((column) => (
               <Box key={`${rowKey}-${String(column.key)}`} width={column.width} marginRight={1}>
-                <Text inverse={isSelected} bold={isSelected}>
-                  {renderCellValue(column, row)}
+                <Text color={rowTextColor} bold={isSelected}>
+                  {renderCellValue(column, row, isSelected)}
                 </Text>
               </Box>
             ))}

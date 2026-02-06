@@ -12,6 +12,7 @@ interface KanbanBoardProps {
   onSelectTask: (taskId: string) => void;
   onMoveTask?: (taskId: string, newStatus: string) => void;
   isActive?: boolean;
+  availableHeight?: number;
 }
 
 export function KanbanBoard({
@@ -23,6 +24,7 @@ export function KanbanBoard({
   onSelectTask,
   onMoveTask,
   isActive = true,
+  availableHeight,
 }: KanbanBoardProps) {
   const [isMoveMode, setIsMoveMode] = useState(false);
 
@@ -153,6 +155,7 @@ export function KanbanBoard({
               column={column}
               isActiveColumn={isColumnActive}
               selectedTaskIndex={taskIndex}
+              availableHeight={availableHeight}
             />
           );
         })}

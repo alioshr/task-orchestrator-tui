@@ -91,10 +91,14 @@ describe('KanbanView', () => {
   let mockAdapter: DataAdapter;
   let onSelectTask: ReturnType<typeof mock>;
   let onBack: ReturnType<typeof mock>;
+  let onActiveColumnIndexChange: ReturnType<typeof mock>;
+  let onSelectedTaskIndexChange: ReturnType<typeof mock>;
 
   beforeEach(() => {
     onSelectTask = mock(() => {});
     onBack = mock(() => {});
+    onActiveColumnIndexChange = mock(() => {});
+    onSelectedTaskIndexChange = mock(() => {});
 
     mockAdapter = {
       getProject: mock(async () => ({ success: true, data: mockProject })),
@@ -124,12 +128,16 @@ describe('KanbanView', () => {
     }));
   });
 
-  function renderWithProviders(projectId: string) {
+  function renderWithProviders(projectId: string, activeColumnIndex = 0, selectedTaskIndex = 0) {
     return render(
       <ThemeProvider>
         <AdapterProvider adapter={mockAdapter}>
           <KanbanView
             projectId={projectId}
+            activeColumnIndex={activeColumnIndex}
+            onActiveColumnIndexChange={onActiveColumnIndexChange}
+            selectedTaskIndex={selectedTaskIndex}
+            onSelectedTaskIndexChange={onSelectedTaskIndexChange}
             onSelectTask={onSelectTask}
             onBack={onBack}
           />

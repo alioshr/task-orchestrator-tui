@@ -37,27 +37,27 @@ export function KanbanCard({ task, isSelected, compact = false }: KanbanCardProp
     return (
       <Box paddingX={1}>
         <Text inverse={isSelected}>
-          {title}  <PriorityBadge priority={task.priority} />
+          {title}  <PriorityBadge priority={task.priority} isSelected={isSelected} />
         </Text>
       </Box>
     );
   }
 
   // Normal mode: bordered card with title, priority, and tag
-  const title = truncateText(task.title, 40);
+  // Card fills column width; content area = column content (26) - card borders (2) - card padding (2) = 22
+  const title = truncateText(task.title, 22);
 
   return (
     <Box
       borderStyle="single"
       paddingX={1}
       flexDirection="column"
-      width={24}
     >
       <Text inverse={isSelected} bold>
         {title}
       </Text>
       <Box gap={1}>
-        <PriorityBadge priority={task.priority} />
+        <PriorityBadge priority={task.priority} isSelected={isSelected} />
         <Text inverse={isSelected} dimColor>
           {task.priority}
         </Text>

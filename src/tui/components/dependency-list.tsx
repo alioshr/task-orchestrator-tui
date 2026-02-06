@@ -70,7 +70,7 @@ export function DependencyList({
                   ○{' '}
                 </Text>
                 <Text inverse={isSelected} bold={isSelected}>
-                  <StatusBadge status={task.status} />{' '}
+                  <StatusBadge status={task.status} isSelected={isSelected} />{' '}
                 </Text>
                 <Text inverse={isSelected} bold={isSelected}>
                   {task.title}
@@ -96,7 +96,7 @@ export function DependencyList({
                   ○{' '}
                 </Text>
                 <Text inverse={isSelected} bold={isSelected}>
-                  <StatusBadge status={task.status} />{' '}
+                  <StatusBadge status={task.status} isSelected={isSelected} />{' '}
                 </Text>
                 <Text inverse={isSelected} bold={isSelected}>
                   {task.title}

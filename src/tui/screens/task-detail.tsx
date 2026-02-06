@@ -47,7 +47,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
 
   // Handle keyboard navigation
   useInput((input, key) => {
-    if (key.escape) {
+    if (key.escape || input === 'h' || key.leftArrow) {
       onBack();
     }
     if (input === 'r') {
@@ -199,7 +199,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
       {/* Help Footer */}
       <Box marginTop={1}>
         <Text dimColor>
-          ESC: Back | Tab: Switch Panel | r: Refresh
+          ESC/h: Back | Tab: Switch Panel | r: Refresh
         </Text>
       </Box>
     </Box>

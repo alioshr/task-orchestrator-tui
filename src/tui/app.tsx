@@ -22,6 +22,20 @@ export function App() {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [featureId, setFeatureId] = useState<string | null>(null);
 
+  // View state persistence
+  // Dashboard state
+  const [dashboardSelectedIndex, setDashboardSelectedIndex] = useState(0);
+
+  // ProjectView state
+  const [projectExpandedFeatures, setProjectExpandedFeatures] = useState<Set<string>>(new Set());
+  const [projectExpandedGroups, setProjectExpandedGroups] = useState<Set<string>>(new Set());
+  const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
+  const [projectViewMode, setProjectViewMode] = useState<'features' | 'status'>('status');
+
+  // KanbanView state
+  const [kanbanActiveColumnIndex, setKanbanActiveColumnIndex] = useState(0);
+  const [kanbanSelectedTaskIndex, setKanbanSelectedTaskIndex] = useState(0);
+
   // Global keyboard handling
   useInput((input, key) => {
     if (input === 'q') {
@@ -51,12 +65,24 @@ export function App() {
   });
 
   // Shortcuts for footer
-  const shortcuts = [
+  const shortcuts = screen === 'feature' ? [
+    // Feature screen has specific shortcuts, no need for global ones
     { key: 'j/k', label: 'Navigate' },
-    { key: 'Enter', label: 'Select' },
+    { key: 'Enter', label: 'Open Task' },
     { key: 'q', label: 'Quit' },
+    { key: 'r', label: 'Refresh' },
+    { key: 'Esc', label: 'Back' }
+  ] : [
+    // Default global shortcuts
+    { key: 'j/k', label: 'Navigate' },
+    { key: 'Enter/l', label: 'Select' },
+    { key: 'q', label: 'Quit' },
+    ...(screen === 'dashboard' ? [
+      { key: 'h', label: 'Back' },
+    ] : []),
     ...(screen === 'project' ? [
       { key: 'f', label: 'Feature Info' },
+      { key: 'v', label: 'Toggle View' },
       { key: 'b', label: 'Board View' },
       { key: 'r', label: 'Refresh' },
       { key: 'Esc', label: 'Back' }
@@ -72,12 +98,6 @@ export function App() {
       { key: 'r', label: 'Refresh' },
       { key: 'Esc', label: 'Back' }
     ] : []),
-    ...(screen === 'feature' ? [
-      { key: 'j/k', label: 'Navigate' },
-      { key: 'Enter', label: 'Open Task' },
-      { key: 'r', label: 'Refresh' },
-      { key: 'Esc', label: 'Back' }
-    ] : []),
   ];
 
   return (
@@ -88,15 +108,31 @@ export function App() {
           <Box flexGrow={1} flexDirection="column">
             {screen === 'dashboard' && (
               <Dashboard
+                selectedIndex={dashboardSelectedIndex}
+                onSelectedIndexChange={setDashboardSelectedIndex}
                 onSelectProject={(id) => {
                   setProjectId(id);
                   setScreen('project');
+                }}
+                onBack={() => {
+                  setScreen('dashboard');
+                  setProjectId(null);
+                  setTaskId(null);
+                  setFeatureId(null);
                 }}
               />
             )}
             {screen === 'project' && projectId && (
               <ProjectView
                 projectId={projectId}
+                expandedFeatures={projectExpandedFeatures}
+                onExpandedFeaturesChange={setProjectExpandedFeatures}
+                expandedGroups={projectExpandedGroups}
+                onExpandedGroupsChange={setProjectExpandedGroups}
+                selectedIndex={projectSelectedIndex}
+                onSelectedIndexChange={setProjectSelectedIndex}
+                viewMode={projectViewMode}
+                onViewModeChange={setProjectViewMode}
                 onSelectTask={(id) => {
                   setTaskId(id);
                   setScreen('task');
@@ -114,6 +150,10 @@ export function App() {
             {screen === 'kanban' && projectId && (
               <KanbanView
                 projectId={projectId}
+                activeColumnIndex={kanbanActiveColumnIndex}
+                onActiveColumnIndexChange={setKanbanActiveColumnIndex}
+                selectedTaskIndex={kanbanSelectedTaskIndex}
+                onSelectedTaskIndexChange={setKanbanSelectedTaskIndex}
                 onSelectTask={(id) => {
                   setTaskId(id);
                   setScreen('task');
