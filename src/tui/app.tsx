@@ -10,6 +10,7 @@ import { ProjectView } from './screens/project-view';
 import { TaskDetail } from './screens/task-detail';
 import { KanbanView } from './screens/kanban-view';
 import { FeatureDetail } from './screens/feature-detail';
+import { SearchScreen } from './screens/search';
 
 export function App() {
   // Setup
@@ -17,10 +18,12 @@ export function App() {
   const adapter = useMemo(() => new DirectAdapter(), []);
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature' | 'search'>('dashboard');
+  const [searchReturnScreen, setSearchReturnScreen] = useState<'dashboard' | 'project' | 'task' | 'kanban' | 'feature'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [featureId, setFeatureId] = useState<string | null>(null);
+  const [taskOriginScreen, setTaskOriginScreen] = useState<'project' | 'kanban' | 'feature'>('project');
 
   // View state persistence
   // Dashboard state
@@ -41,64 +44,74 @@ export function App() {
     if (input === 'q') {
       exit();
     }
-    // Toggle between project tree view and kanban board
-    if (input === 'b' && (screen === 'project' || screen === 'kanban')) {
-      setScreen(screen === 'project' ? 'kanban' : 'project');
-    }
-    // Escape key to go back
-    if (key.escape) {
-      if (screen === 'feature') {
-        setScreen('project');
-        setFeatureId(null);
-      } else if (screen === 'task') {
-        // Go back to project view (default for simplicity)
-        setScreen('project');
-        setTaskId(null);
-      } else if (screen === 'kanban') {
-        setScreen('dashboard');
-        setProjectId(null);
-      } else if (screen === 'project') {
-        setScreen('dashboard');
-        setProjectId(null);
+    if (input === '/') {
+      if (screen !== 'search') {
+        setSearchReturnScreen(screen as 'dashboard' | 'project' | 'task' | 'kanban' | 'feature');
+        setScreen('search');
       }
+      return;
     }
   });
 
   // Shortcuts for footer
-  const shortcuts = screen === 'feature' ? [
-    // Feature screen has specific shortcuts, no need for global ones
-    { key: 'j/k', label: 'Navigate' },
-    { key: 'Enter', label: 'Open Task' },
-    { key: 'q', label: 'Quit' },
-    { key: 'r', label: 'Refresh' },
-    { key: 'Esc', label: 'Back' }
-  ] : [
-    // Default global shortcuts
-    { key: 'j/k', label: 'Navigate' },
-    { key: 'Enter/l', label: 'Select' },
-    { key: 'q', label: 'Quit' },
-    ...(screen === 'dashboard' ? [
-      { key: 'h', label: 'Back' },
-    ] : []),
-    ...(screen === 'project' ? [
-      { key: 'f', label: 'Feature Info' },
-      { key: 'v', label: 'Toggle View' },
-      { key: 'b', label: 'Board View' },
-      { key: 'r', label: 'Refresh' },
-      { key: 'Esc', label: 'Back' }
-    ] : []),
-    ...(screen === 'kanban' ? [
-      { key: 'h/l', label: 'Columns' },
-      { key: 'b', label: 'Tree View' },
-      { key: 'm', label: 'Move Task' },
-      { key: 'Esc', label: 'Back' }
-    ] : []),
-    ...(screen === 'task' ? [
-      { key: 'Tab', label: 'Switch Panel' },
-      { key: 'r', label: 'Refresh' },
-      { key: 'Esc', label: 'Back' }
-    ] : []),
-  ];
+  const shortcuts =
+    screen === 'search'
+      ? [
+        { key: '↑/↓', label: 'Navigate' },
+        { key: 'Enter/→', label: 'Open' },
+        { key: 'Esc/←', label: 'Back' },
+        { key: 'q', label: 'Quit' },
+      ]
+      : screen === 'feature'
+        ? [
+          { key: 'j/k', label: 'Navigate' },
+          { key: 'Enter', label: 'Open Task' },
+          { key: 'n', label: 'New Task' },
+          { key: 'q', label: 'Quit' },
+          { key: 'r', label: 'Refresh' },
+          { key: 'Esc', label: 'Back' },
+        ]
+        : [
+          { key: 'j/k', label: 'Navigate' },
+          { key: 'Enter/l', label: 'Select' },
+          { key: '/', label: 'Search' },
+          { key: 'q', label: 'Quit' },
+          ...(screen === 'dashboard'
+            ? [
+              { key: 'n', label: 'New Project' },
+              { key: 'f', label: 'Project Info' },
+              { key: 'e', label: 'Edit Project' },
+              { key: 'd', label: 'Delete Project' },
+              { key: 'h', label: 'Back' },
+            ]
+            : []),
+          ...(screen === 'project'
+            ? [
+              { key: 'n', label: 'New Feature' },
+              { key: 't', label: 'New Task' },
+              { key: 'f', label: 'Feature Info' },
+              { key: 'v', label: 'Toggle View' },
+              { key: 'b', label: 'Board View' },
+              { key: 'r', label: 'Refresh' },
+              { key: 'h/Esc', label: 'Back' },
+            ]
+            : []),
+          ...(screen === 'kanban'
+            ? [
+              { key: 'h/l', label: 'Columns' },
+              { key: 'b', label: 'Tree View' },
+              { key: 'm', label: 'Move Task' },
+              { key: 'Esc', label: 'Back' },
+            ]
+            : []),
+          ...(screen === 'task'
+            ? [
+              { key: 'Tab', label: 'Switch Panel' },
+              { key: 'r', label: 'Refresh' },
+              { key: 'Esc', label: 'Back' },
+            ]
+            : []),
+        ];
 
   return (
     <ThemeProvider>
@@ -134,12 +147,16 @@ export function App() {
                 viewMode={projectViewMode}
                 onViewModeChange={setProjectViewMode}
                 onSelectTask={(id) => {
+                  setTaskOriginScreen('project');
                   setTaskId(id);
                   setScreen('task');
                 }}
                 onSelectFeature={(id) => {
                   setFeatureId(id);
                   setScreen('feature');
+                }}
+                onToggleBoard={() => {
+                  setScreen('kanban');
                 }}
                 onBack={() => {
                   setScreen('dashboard');
@@ -155,6 +172,7 @@ export function App() {
                 selectedTaskIndex={kanbanSelectedTaskIndex}
                 onSelectedTaskIndexChange={setKanbanSelectedTaskIndex}
                 onSelectTask={(id) => {
+                  setTaskOriginScreen('kanban');
                   setTaskId(id);
                   setScreen('task');
                 }}
@@ -172,7 +190,7 @@ export function App() {
                   // Stay on task screen, just change taskId
                 }}
                 onBack={() => {
-                  setScreen('project');
+                  setScreen(taskOriginScreen === 'kanban' ? 'kanban' : taskOriginScreen === 'feature' ? 'feature' : 'project');
                   setTaskId(null);
                 }}
               />
@@ -181,12 +199,33 @@ export function App() {
               <FeatureDetail
                 featureId={featureId}
                 onSelectTask={(id) => {
+                  setTaskOriginScreen('feature');
                   setTaskId(id);
                   setScreen('task');
                 }}
                 onBack={() => {
                   setScreen('project');
                   setFeatureId(null);
+                }}
+              />
+            )}
+            {screen === 'search' && (
+              <SearchScreen
+                onOpenProject={(id) => {
+                  setProjectId(id);
+                  setScreen('project');
+                }}
+                onOpenFeature={(id) => {
+                  setFeatureId(id);
+                  setScreen('feature');
+                }}
+                onOpenTask={(id) => {
+                  setTaskOriginScreen('project');
+                  setTaskId(id);
+                  setScreen('task');
+                }}
+                onBack={() => {
+                  setScreen(searchReturnScreen);
                 }}
               />
             )}

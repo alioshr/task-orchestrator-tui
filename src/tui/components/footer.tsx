@@ -17,7 +17,7 @@ export const Footer: React.FC<FooterProps> = ({ shortcuts }) => {
       >
         <Text> </Text>
       </Box>
-      <Box paddingX={1} gap={2}>
+      <Box paddingX={3} gap={2}>
         {shortcuts.map((shortcut) => (
           <Text key={`${shortcut.key}-${shortcut.label}`}>
             <Text dimColor>[{shortcut.key}]</Text> {shortcut.label}

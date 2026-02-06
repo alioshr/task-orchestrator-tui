@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { BoardTask } from '../../ui/lib/types';
 import { PriorityBadge } from './priority-badge';
 
 export interface KanbanCardProps {
-  task: Task;
+  task: BoardTask;
   isSelected: boolean;
   compact?: boolean;
 }
@@ -29,7 +29,7 @@ export function KanbanCard({ task, isSelected, compact = false }: KanbanCardProp
     return text.slice(0, maxLength - 3) + '...';
   };
 
-  const firstTag = task.tags && task.tags.length > 0 ? task.tags[0] : null;
+  const featureLabel = task.featureName ?? '—';
 
   if (compact) {
     // Compact mode: single line with title and priority dots
@@ -61,11 +61,9 @@ export function KanbanCard({ task, isSelected, compact = false }: KanbanCardProp
         <Text inverse={isSelected} dimColor>
           {task.priority}
         </Text>
-        {firstTag && (
-          <Text inverse={isSelected} color="cyan">
-            #{firstTag}
-          </Text>
-        )}
+        <Text inverse={isSelected} dimColor>
+          [{featureLabel}]
+        </Text>
       </Box>
     </Box>
   );

@@ -17,6 +17,9 @@ import type {
   Feature,
   Project,
   TaskStatus,
+  ProjectStatus,
+  FeatureStatus,
+  Priority,
   Section,
   EntityType,
 } from 'task-orchestrator-bun/src/domain/types';
@@ -85,6 +88,34 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve({ success: true, data: overview });
   }
 
+  async createProject(params: {
+    name: string;
+    summary: string;
+    description?: string;
+    status?: ProjectStatus;
+    tags?: string[];
+  }): Promise<Result<Project>> {
+    return Promise.resolve(projects.createProject(params));
+  }
+
+  async updateProject(
+    id: string,
+    params: {
+      name?: string;
+      summary?: string;
+      description?: string;
+      status?: ProjectStatus;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Project>> {
+    return Promise.resolve(projects.updateProject(id, params));
+  }
+
+  async deleteProject(id: string): Promise<Result<boolean>> {
+    return Promise.resolve(projects.deleteProject(id));
+  }
+
   // ============================================================================
   // Features
   // ============================================================================
@@ -129,6 +160,38 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve({ success: true, data: overview });
   }
 
+  async createFeature(params: {
+    projectId?: string;
+    name: string;
+    summary: string;
+    description?: string;
+    status?: FeatureStatus;
+    priority: Priority;
+    tags?: string[];
+  }): Promise<Result<Feature>> {
+    return Promise.resolve(features.createFeature(params));
+  }
+
+  async updateFeature(
+    id: string,
+    params: {
+      name?: string;
+      summary?: string;
+      description?: string;
+      status?: FeatureStatus;
+      priority?: Priority;
+      projectId?: string;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Feature>> {
+    return Promise.resolve(features.updateFeature(id, params));
+  }
+
+  async deleteFeature(id: string): Promise<Result<boolean>> {
+    return Promise.resolve(features.deleteFeature(id));
+  }
+
   // ============================================================================
   // Tasks
   // ============================================================================
@@ -152,12 +215,65 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve(tasks.getTask(id));
   }
 
+  async createTask(params: {
+    projectId?: string;
+    featureId?: string;
+    title: string;
+    summary: string;
+    description?: string;
+    status?: TaskStatus;
+    priority: Priority;
+    complexity: number;
+    tags?: string[];
+  }): Promise<Result<Task>> {
+    return Promise.resolve(tasks.createTask(params));
+  }
+
+  async updateTask(
+    id: string,
+    params: {
+      title?: string;
+      summary?: string;
+      description?: string;
+      status?: TaskStatus;
+      priority?: Priority;
+      complexity?: number;
+      projectId?: string;
+      featureId?: string;
+      lastModifiedBy?: string;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Task>> {
+    return Promise.resolve(tasks.updateTask(id, params));
+  }
+
+  async deleteTask(id: string): Promise<Result<boolean>> {
+    return Promise.resolve(tasks.deleteTask(id));
+  }
+
   async setTaskStatus(
     id: string,
     status: TaskStatus,
     version: number
   ): Promise<Result<Task>> {
     return Promise.resolve(tasks.setTaskStatus(id, status, version));
+  }
+
+  async setProjectStatus(
+    id: string,
+    status: ProjectStatus,
+    version: number
+  ): Promise<Result<Project>> {
+    return Promise.resolve(projects.updateProject(id, { status, version }));
+  }
+
+  async setFeatureStatus(
+    id: string,
+    status: FeatureStatus,
+    version: number
+  ): Promise<Result<Feature>> {
+    return Promise.resolve(features.updateFeature(id, { status, version }));
   }
 
   // ============================================================================

@@ -20,6 +20,7 @@ export interface TreeViewProps {
   onSelectTask: (taskId: string) => void;
   onSelectFeature?: (featureId: string) => void;
   onBack?: () => void;
+  isActive?: boolean;
 }
 
 export function TreeView({
@@ -31,6 +32,7 @@ export function TreeView({
   onSelectTask,
   onSelectFeature,
   onBack,
+  isActive = true,
 }: TreeViewProps) {
   const { theme } = useTheme();
   const getRowDepth = (row: TreeRow): number => {
@@ -153,6 +155,7 @@ export function TreeView({
   };
 
   useInput((input, key) => {
+    if (!isActive) return;
     if (rows.length === 0) return;
 
     // Navigation: j/down or k/up
@@ -182,7 +185,7 @@ export function TreeView({
       }
       // Separator rows do nothing on selection
     }
-  });
+  }, { isActive });
 
   const renderRow = (row: TreeRow, index: number) => {
     const isSelected = index === selectedIndex;

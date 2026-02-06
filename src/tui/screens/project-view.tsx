@@ -1,9 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useProjectTree } from '../../ui/hooks/use-data';
+import { useAdapter } from '../../ui/context/adapter-context';
 import { TreeView, type TreeRow } from '../components/tree-view';
 import { StatusBadge } from '../components/status-badge';
 import { ViewModeChips } from '../components/view-mode-chips';
+import { ConfirmDialog } from '../components/confirm-dialog';
+import { FormDialog } from '../components/form-dialog';
+import { ErrorMessage } from '../components/error-message';
+import { EmptyState } from '../components/empty-state';
+import type { FeatureStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
 
 interface ProjectViewProps {
   projectId: string;
@@ -17,11 +23,24 @@ interface ProjectViewProps {
   onViewModeChange: (mode: 'features' | 'status') => void;
   onSelectTask: (taskId: string) => void;
   onSelectFeature: (featureId: string) => void;
+  onToggleBoard: () => void;
   onBack: () => void;
 }
 
-export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onBack }: ProjectViewProps) {
+export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onToggleBoard, onBack }: ProjectViewProps) {
+  const { adapter } = useAdapter();
   const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
+  const [mode, setMode] = useState<'idle' | 'feature-info' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [featureTransitions, setFeatureTransitions] = useState<string[]>([]);
+  const [featureTransitionIndex, setFeatureTransitionIndex] = useState(0);
+  const [infoFeatureId, setInfoFeatureId] = useState<string | null>(null);
+
+  const openFeatureInfo = (featureId?: string) => {
+    if (!featureId) return;
+    setInfoFeatureId(featureId);
+    setMode('feature-info');
+  };
 
   // Build flat list of rows - switch based on view mode
   const rows = useMemo(() => {
@@ -69,6 +88,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
 
   // Handle keyboard
   useInput((input, key) => {
+    if (mode !== 'idle') return;
     if (key.escape) {
       onBack();
     }
@@ -79,20 +99,111 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 'v') {
       onViewModeChange(viewMode === 'features' ? 'status' : 'features');
     }
-    // When on a feature row, 'f' opens feature detail
+    if (input === 'b') {
+      onToggleBoard();
+    }
+    if (input === 'n') {
+      setMode('create-feature');
+    }
+    if (input === 't') {
+      setMode('create-task');
+    }
+    // Open feature info card (read-only)
     if (input === 'f') {
       const currentRow = rows[selectedIndex];
-      if (currentRow?.type === 'feature') {
-        onSelectFeature(currentRow.feature.id);
-      } else if (currentRow?.type === 'group' && currentRow.featureId) {
-        // Status view feature subgroup row
-        onSelectFeature(currentRow.featureId);
-      } else if (currentRow?.type === 'task' && currentRow.task.featureId) {
-        // If on a task row, open its parent feature detail
-        onSelectFeature(currentRow.task.featureId);
+      const featureId =
+        currentRow?.type === 'feature'
+          ? currentRow.feature.id
+          : currentRow?.type === 'group'
+            ? currentRow.featureId
+            : currentRow?.type === 'task'
+              ? currentRow.task.featureId
+              : undefined;
+      openFeatureInfo(featureId);
+      return;
+    }
+    if (input === 'e') {
+      const currentRow = rows[selectedIndex];
+      if (currentRow?.type === 'feature' || (currentRow?.type === 'group' && currentRow.featureId)) {
+        setMode('edit-feature');
+      } else if (currentRow?.type === 'task') {
+        setMode('edit-task');
+      }
+    }
+    if (input === 'd') {
+      const currentRow = rows[selectedIndex];
+      if (currentRow?.type === 'feature' || (currentRow?.type === 'group' && currentRow.featureId)) {
+        setMode('delete-feature');
+      } else if (currentRow?.type === 'task') {
+        setMode('delete-task');
+      }
+    }
+    if (input === 's') {
+      const currentRow = rows[selectedIndex];
+      const featureId =
+        currentRow?.type === 'feature'
+          ? currentRow.feature.id
+          : currentRow?.type === 'group'
+            ? currentRow.featureId
+            : currentRow?.type === 'task'
+              ? currentRow.task.featureId
+              : undefined;
+      const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+      if (feature) {
+        adapter.getAllowedTransitions('FEATURE', feature.status).then((result) => {
+          if (result.success) {
+            setFeatureTransitions(result.data);
+            setFeatureTransitionIndex(0);
+            setMode('feature-status');
+          }
+        });
       }
     }
   });
+
+  useInput((input, key) => {
+    if (mode !== 'feature-info') return;
+    if (key.escape || input === 'h' || key.leftArrow || key.return) {
+      setMode('idle');
+      setInfoFeatureId(null);
+    }
+  }, { isActive: mode === 'feature-info' });
+
+  useInput((input, key) => {
+    if (mode !== 'feature-status') return;
+    if (input === 'j' || key.downArrow) {
+      setFeatureTransitionIndex((prev) => (prev + 1) % Math.max(1, featureTransitions.length));
+      return;
+    }
+    if (input === 'k' || key.upArrow) {
+      setFeatureTransitionIndex((prev) => (prev - 1 + Math.max(1, featureTransitions.length)) % Math.max(1, featureTransitions.length));
+      return;
+    }
+    if (key.escape) {
+      setMode('idle');
+      return;
+    }
+    if (key.return) {
+      const currentRow = rows[selectedIndex];
+      const featureId =
+        currentRow?.type === 'feature'
+          ? currentRow.feature.id
+          : currentRow?.type === 'group'
+            ? currentRow.featureId
+            : currentRow?.type === 'task'
+              ? currentRow.task.featureId
+              : undefined;
+      const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+      const nextStatus = featureTransitions[featureTransitionIndex] as FeatureStatus | undefined;
+      if (feature && nextStatus) {
+        adapter.setFeatureStatus(feature.id, nextStatus, feature.version).then((result) => {
+          if (!result.success) setLocalError(result.error);
+          refresh();
+          setMode('idle');
+        });
+      }
+    }
+  }, { isActive: mode === 'feature-status' });
 
   // Toggle feature expansion
   const handleToggleFeature = (featureId: string) => {
@@ -148,6 +259,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
   // Clamp selectedIndex if data changed
   const clampedSelectedIndex = Math.min(selectedIndex, Math.max(0, rows.length - 1));
   const effectiveSelectedIndex = rows.length > 0 ? clampedSelectedIndex : 0;
+  const infoFeature = infoFeatureId ? features.find((f) => f.id === infoFeatureId) : undefined;
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -172,7 +284,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
       </Box>
 
       {rows.length === 0 ? (
-        <Text dimColor>No features or tasks yet.</Text>
+        <EmptyState message="No features or tasks yet." hint="Press n to create a feature." />
       ) : (
         <TreeView
           rows={rows}
@@ -181,10 +293,232 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
           onToggleFeature={handleToggleFeature}
           onToggleGroup={handleToggleGroup}
           onSelectTask={onSelectTask}
-          onSelectFeature={onSelectFeature}
+          onSelectFeature={(featureId) => openFeatureInfo(featureId)}
           onBack={onBack}
+          isActive={mode === 'idle'}
         />
       )}
+
+      {localError ? <ErrorMessage message={localError} onDismiss={() => setLocalError(null)} /> : null}
+
+      {mode === 'feature-info' && infoFeature ? (
+        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginTop={1}>
+          <Text bold>Feature Info</Text>
+          <Text bold>{infoFeature.name}</Text>
+          <Box>
+            <StatusBadge status={infoFeature.status} />
+            <Text> </Text>
+            <Text dimColor>Priority: {infoFeature.priority} • Tasks: {infoFeature.tasks.length}</Text>
+          </Box>
+          <Text>{infoFeature.summary}</Text>
+          {infoFeature.description ? <Text dimColor>{infoFeature.description}</Text> : null}
+          <Text dimColor>Esc/h/Enter close</Text>
+        </Box>
+      ) : null}
+
+      {mode === 'create-feature' ? (
+        <FormDialog
+          title="Create Feature"
+          fields={[
+            { key: 'name', label: 'Name', required: true },
+            { key: 'summary', label: 'Summary', required: true },
+            { key: 'description', label: 'Description' },
+            { key: 'priority', label: 'Priority (HIGH/MEDIUM/LOW)', value: 'MEDIUM', required: true },
+          ]}
+          onCancel={() => setMode('idle')}
+          onSubmit={(values) => {
+            adapter.createFeature({
+              projectId,
+              name: values.name ?? '',
+              summary: values.summary ?? '',
+              description: values.description || undefined,
+              priority: ((values.priority ?? 'MEDIUM') as Priority),
+            }).then((result) => {
+              if (!result.success) setLocalError(result.error);
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'edit-feature' ? (
+        (() => {
+          const currentRow = rows[selectedIndex];
+          const featureId =
+            currentRow?.type === 'feature'
+              ? currentRow.feature.id
+              : currentRow?.type === 'group'
+                ? currentRow.featureId
+                : undefined;
+          const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+          if (!feature) return null;
+          return (
+            <FormDialog
+              title="Edit Feature"
+              fields={[
+                { key: 'name', label: 'Name', required: true, value: feature.name },
+                { key: 'summary', label: 'Summary', required: true, value: feature.summary },
+                { key: 'description', label: 'Description', value: feature.description ?? '' },
+                { key: 'priority', label: 'Priority (HIGH/MEDIUM/LOW)', required: true, value: feature.priority },
+              ]}
+              onCancel={() => setMode('idle')}
+              onSubmit={(values) => {
+                adapter.updateFeature(feature.id, {
+                  name: values.name ?? '',
+                  summary: values.summary ?? '',
+                  description: values.description || undefined,
+                  priority: ((values.priority ?? feature.priority) as Priority),
+                  version: feature.version,
+                }).then((result) => {
+                  if (!result.success) setLocalError(result.error);
+                  refresh();
+                  setMode('idle');
+                });
+              }}
+            />
+          );
+        })()
+      ) : null}
+
+      {mode === 'delete-feature' ? (
+        (() => {
+          const currentRow = rows[selectedIndex];
+          const featureId =
+            currentRow?.type === 'feature'
+              ? currentRow.feature.id
+              : currentRow?.type === 'group'
+                ? currentRow.featureId
+                : undefined;
+          const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+          if (!feature) return null;
+          return (
+            <ConfirmDialog
+              title="Delete Feature"
+              message={`Delete "${feature.name}"?`}
+              onCancel={() => setMode('idle')}
+              onConfirm={() => {
+                adapter.deleteFeature(feature.id).then((result) => {
+                  if (!result.success) setLocalError(result.error);
+                  refresh();
+                  setMode('idle');
+                });
+              }}
+            />
+          );
+        })()
+      ) : null}
+
+      {mode === 'create-task' ? (
+        <FormDialog
+          title="Create Task"
+          fields={[
+            { key: 'title', label: 'Title', required: true },
+            { key: 'summary', label: 'Summary', required: true },
+            { key: 'description', label: 'Description' },
+            { key: 'priority', label: 'Priority (HIGH/MEDIUM/LOW)', required: true, value: 'MEDIUM' },
+            { key: 'complexity', label: 'Complexity (1-10)', required: true, value: '3' },
+          ]}
+          onCancel={() => setMode('idle')}
+          onSubmit={(values) => {
+            const currentRow = rows[selectedIndex];
+            const featureId =
+              currentRow?.type === 'feature'
+                ? currentRow.feature.id
+                : currentRow?.type === 'group'
+                  ? currentRow.featureId
+                  : currentRow?.type === 'task'
+                    ? currentRow.task.featureId
+                    : undefined;
+            adapter.createTask({
+              projectId,
+              featureId,
+              title: values.title ?? '',
+              summary: values.summary ?? '',
+              description: values.description || undefined,
+              priority: ((values.priority ?? 'MEDIUM') as Priority),
+              complexity: Number.parseInt(values.complexity ?? '3', 10) || 3,
+            }).then((result) => {
+              if (!result.success) setLocalError(result.error);
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'edit-task' ? (
+        (() => {
+          const currentRow = rows[selectedIndex];
+          if (!currentRow || currentRow.type !== 'task') return null;
+          const task = currentRow.task;
+          return (
+            <FormDialog
+              title="Edit Task"
+              fields={[
+                { key: 'title', label: 'Title', required: true, value: task.title },
+                { key: 'summary', label: 'Summary', required: true, value: task.summary },
+                { key: 'description', label: 'Description', value: task.description ?? '' },
+                { key: 'priority', label: 'Priority (HIGH/MEDIUM/LOW)', required: true, value: task.priority },
+                { key: 'complexity', label: 'Complexity (1-10)', required: true, value: String(task.complexity) },
+              ]}
+              onCancel={() => setMode('idle')}
+              onSubmit={(values) => {
+                adapter.updateTask(task.id, {
+                  title: values.title ?? '',
+                  summary: values.summary ?? '',
+                  description: values.description || undefined,
+                  priority: ((values.priority ?? task.priority) as Priority),
+                  complexity: Number.parseInt(values.complexity ?? String(task.complexity), 10) || task.complexity,
+                  version: task.version,
+                }).then((result) => {
+                  if (!result.success) setLocalError(result.error);
+                  refresh();
+                  setMode('idle');
+                });
+              }}
+            />
+          );
+        })()
+      ) : null}
+
+      {mode === 'delete-task' ? (
+        (() => {
+          const currentRow = rows[selectedIndex];
+          if (!currentRow || currentRow.type !== 'task') return null;
+          const task = currentRow.task;
+          return (
+            <ConfirmDialog
+              title="Delete Task"
+              message={`Delete "${task.title}"?`}
+              onCancel={() => setMode('idle')}
+              onConfirm={() => {
+                adapter.deleteTask(task.id).then((result) => {
+                  if (!result.success) setLocalError(result.error);
+                  refresh();
+                  setMode('idle');
+                });
+              }}
+            />
+          );
+        })()
+      ) : null}
+
+      {mode === 'feature-status' ? (
+        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+          <Text bold>Set Feature Status</Text>
+          {featureTransitions.length === 0 ? (
+            <Text dimColor>No transitions available</Text>
+          ) : (
+            featureTransitions.map((status, idx) => (
+              <Text key={status} inverse={idx === featureTransitionIndex}>
+                {idx === featureTransitionIndex ? '>' : ' '} {status}
+              </Text>
+            ))
+          )}
+          <Text dimColor>Enter apply • Esc cancel</Text>
+        </Box>
+      ) : null}
     </Box>
   );
 }

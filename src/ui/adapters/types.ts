@@ -10,9 +10,10 @@ import type {
   Feature,
   Project,
   TaskStatus,
+  ProjectStatus,
+  FeatureStatus,
   Section,
   EntityType,
-  Dependency,
   Priority,
 } from 'task-orchestrator-bun/src/domain/types';
 
@@ -81,6 +82,28 @@ export interface DataAdapter {
    */
   getProjectOverview(id: string): Promise<Result<ProjectOverview>>;
 
+  createProject(params: {
+    name: string;
+    summary: string;
+    description?: string;
+    status?: ProjectStatus;
+    tags?: string[];
+  }): Promise<Result<Project>>;
+
+  updateProject(
+    id: string,
+    params: {
+      name?: string;
+      summary?: string;
+      description?: string;
+      status?: ProjectStatus;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Project>>;
+
+  deleteProject(id: string): Promise<Result<boolean>>;
+
   // ============================================================================
   // Features
   // ============================================================================
@@ -100,6 +123,32 @@ export interface DataAdapter {
    */
   getFeatureOverview(id: string): Promise<Result<FeatureOverview>>;
 
+  createFeature(params: {
+    projectId?: string;
+    name: string;
+    summary: string;
+    description?: string;
+    status?: FeatureStatus;
+    priority: Priority;
+    tags?: string[];
+  }): Promise<Result<Feature>>;
+
+  updateFeature(
+    id: string,
+    params: {
+      name?: string;
+      summary?: string;
+      description?: string;
+      status?: FeatureStatus;
+      priority?: Priority;
+      projectId?: string;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Feature>>;
+
+  deleteFeature(id: string): Promise<Result<boolean>>;
+
   // ============================================================================
   // Tasks
   // ============================================================================
@@ -114,6 +163,37 @@ export interface DataAdapter {
    */
   getTask(id: string): Promise<Result<Task>>;
 
+  createTask(params: {
+    projectId?: string;
+    featureId?: string;
+    title: string;
+    summary: string;
+    description?: string;
+    status?: TaskStatus;
+    priority: Priority;
+    complexity: number;
+    tags?: string[];
+  }): Promise<Result<Task>>;
+
+  updateTask(
+    id: string,
+    params: {
+      title?: string;
+      summary?: string;
+      description?: string;
+      status?: TaskStatus;
+      priority?: Priority;
+      complexity?: number;
+      projectId?: string;
+      featureId?: string;
+      lastModifiedBy?: string;
+      tags?: string[];
+      version: number;
+    }
+  ): Promise<Result<Task>>;
+
+  deleteTask(id: string): Promise<Result<boolean>>;
+
   /**
    * Update a task's status with optimistic concurrency control
    */
@@ -122,6 +202,18 @@ export interface DataAdapter {
     status: TaskStatus,
     version: number
   ): Promise<Result<Task>>;
+
+  setProjectStatus(
+    id: string,
+    status: ProjectStatus,
+    version: number
+  ): Promise<Result<Project>>;
+
+  setFeatureStatus(
+    id: string,
+    status: FeatureStatus,
+    version: number
+  ): Promise<Result<Feature>>;
 
   // ============================================================================
   // Sections

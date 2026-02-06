@@ -4,7 +4,7 @@ import { render } from 'ink-testing-library';
 import { KanbanCard } from '../kanban-card';
 import { ThemeProvider } from '../../../ui/context/theme-context';
 import { Priority, TaskStatus, LockStatus } from 'task-orchestrator-bun/src/domain/types';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { BoardTask } from '../../../ui/lib/types';
 
 // Helper to render with ThemeProvider
 function renderWithTheme(element: React.ReactElement) {
@@ -12,7 +12,7 @@ function renderWithTheme(element: React.ReactElement) {
 }
 
 // Mock task factory
-function createMockTask(overrides: Partial<Task> = {}): Task {
+function createMockTask(overrides: Partial<BoardTask> = {}): BoardTask {
   return {
     id: 'task-1',
     title: 'Test Task',
@@ -26,6 +26,7 @@ function createMockTask(overrides: Partial<Task> = {}): Task {
     createdAt: new Date('2024-01-01'),
     modifiedAt: new Date('2024-01-01'),
     tags: [],
+    featureName: 'Core',
     ...overrides,
   };
 }
@@ -52,25 +53,24 @@ describe('KanbanCard', () => {
     expect(output).toContain('●●●'); // High priority dots
   });
 
-  test('should render first tag in normal mode', () => {
-    const task = createMockTask({ tags: ['frontend', 'ui'] });
+  test('should render feature label in normal mode', () => {
+    const task = createMockTask({ featureName: 'Frontend' });
     const { lastFrame } = renderWithTheme(
       <KanbanCard task={task} isSelected={false} />
     );
 
     const output = lastFrame();
-    expect(output).toContain('#frontend');
-    expect(output).not.toContain('#ui'); // Only first tag
+    expect(output).toContain('[Frontend]');
   });
 
-  test('should not render tag when no tags available', () => {
-    const task = createMockTask({ tags: [] });
+  test('should render fallback label when feature name is missing', () => {
+    const task = createMockTask({ featureName: undefined });
     const { lastFrame } = renderWithTheme(
       <KanbanCard task={task} isSelected={false} />
     );
 
     const output = lastFrame();
-    expect(output).not.toContain('#');
+    expect(output).toContain('[—]');
   });
 
   test('should truncate long titles in normal mode', () => {
@@ -135,8 +135,8 @@ describe('KanbanCard', () => {
     expect(outputSelected).toContain('Selected task');
   });
 
-  test('should handle tasks with no tags gracefully', () => {
-    const task = createMockTask({ tags: undefined });
+  test('should handle tasks with no feature name gracefully', () => {
+    const task = createMockTask({ featureName: undefined });
     const { lastFrame } = renderWithTheme(
       <KanbanCard task={task} isSelected={false} />
     );
@@ -170,7 +170,7 @@ describe('KanbanCard', () => {
     const task = createMockTask({
       title: 'Complete task',
       priority: Priority.HIGH,
-      tags: ['urgent', 'bug-fix'],
+      featureName: 'Payments',
     });
 
     const { lastFrame } = renderWithTheme(
@@ -181,6 +181,6 @@ describe('KanbanCard', () => {
     expect(output).toContain('Complete task');
     expect(output).toContain('HIGH');
     expect(output).toContain('●●●');
-    expect(output).toContain('#urgent');
+    expect(output).toContain('[Payments]');
   });
 });

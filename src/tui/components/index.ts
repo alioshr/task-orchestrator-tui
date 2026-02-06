@@ -10,3 +10,7 @@ export { DependencyList } from './dependency-list';
 export { KanbanCard, type KanbanCardProps } from './kanban-card';
 export { KanbanColumn } from './kanban-column';
 export { KanbanBoard } from './kanban-board';
+export { ConfirmDialog } from './confirm-dialog';
+export { ErrorMessage } from './error-message';
+export { EmptyState } from './empty-state';
+export { FormDialog, type FormField } from './form-dialog';

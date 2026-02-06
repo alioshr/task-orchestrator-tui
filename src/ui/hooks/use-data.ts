@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
 import type { Project, Task, Section, EntityType, TaskStatus, Priority, FeatureStatus } from 'task-orchestrator-bun/src/domain/types';
-import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo } from '../lib/types';
+import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo, BoardCard, BoardTask } from '../lib/types';
 import type { TreeRow } from '../../tui/components/tree-view';
 
 /**
@@ -186,6 +186,14 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   MEDIUM: 2,
   LOW: 1,
 };
+
+const BOARD_STATUS_ORDER: TaskStatus[] = [
+  'PENDING' as TaskStatus,
+  'IN_PROGRESS' as TaskStatus,
+  'IN_REVIEW' as TaskStatus,
+  'BLOCKED' as TaskStatus,
+  'COMPLETED' as TaskStatus,
+];
 
 /**
  * Display names for task statuses
@@ -521,6 +529,85 @@ export function useProjectTree(projectId: string, expandedGroups: Set<string> = 
     loading,
     error,
     refresh: loadProjectTree,
+  };
+}
+
+/**
+ * Hook for fetching board data (kanban columns) for a project.
+ * Returns tasks grouped by status with feature labels for each card.
+ */
+export function useBoardData(projectId: string) {
+  const { adapter } = useAdapter();
+  const [columnsByStatus, setColumnsByStatus] = useState<Map<string, BoardCard[]>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
+
+  const loadBoardData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const [tasksResult, featuresResult] = await Promise.all([
+      adapter.getTasks({ projectId }),
+      adapter.getFeatures({ projectId }),
+    ]);
+
+    if (!tasksResult.success) {
+      setError(tasksResult.error);
+      setLoading(false);
+      return;
+    }
+
+    if (!featuresResult.success) {
+      setError(featuresResult.error);
+      setLoading(false);
+      return;
+    }
+
+    const featureNameById = new Map(featuresResult.data.map((feature) => [feature.id, feature.name] as const));
+    const grouped = new Map<string, BoardCard[]>();
+
+    for (const status of BOARD_STATUS_ORDER) {
+      grouped.set(status, []);
+    }
+
+    for (const task of tasksResult.data) {
+      if (!grouped.has(task.status)) continue;
+
+      const featureName = task.featureId ? featureNameById.get(task.featureId) ?? null : null;
+      const boardTask: BoardTask = {
+        ...task,
+        featureName: featureName ?? undefined,
+      };
+
+      const card: BoardCard = {
+        id: task.id,
+        title: task.title,
+        featureName,
+        priority: task.priority,
+        task: boardTask,
+      };
+
+      grouped.get(task.status)?.push(card);
+    }
+
+    setColumnsByStatus(grouped);
+    setLoading(false);
+  }, [adapter, projectId]);
+
+  useEffect(() => {
+    loadBoardData();
+  }, [loadBoardData, refreshTrigger]);
+
+  return {
+    columnsByStatus,
+    loading,
+    error,
+    refresh,
   };
 }
 

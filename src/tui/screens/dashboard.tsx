@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import React, { useMemo, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import { useProjects } from '../../ui/hooks/use-data';
+import { useAdapter } from '../../ui/context/adapter-context';
 import { EntityTable } from '../components/entity-table';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
 import type { ProjectWithCounts } from '../../ui/hooks/use-data';
+import { ConfirmDialog } from '../components/confirm-dialog';
+import { ErrorMessage } from '../components/error-message';
+import { EmptyState } from '../components/empty-state';
+import { FormDialog } from '../components/form-dialog';
+import type { ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
 
 interface DashboardProps {
   selectedIndex: number;
@@ -14,31 +20,12 @@ interface DashboardProps {
 }
 
 export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProject, onBack }: DashboardProps) {
-  const { projects, loading, error } = useProjects();
-
-  if (loading) {
-    return (
-      <Box paddingX={1} paddingY={1}>
-        <Text>Loading projects...</Text>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box paddingX={1} paddingY={1}>
-        <Text color="red">Error: {error}</Text>
-      </Box>
-    );
-  }
-
-  if (projects.length === 0) {
-    return (
-      <Box paddingX={1} paddingY={1}>
-        <Text dimColor>No projects found. Create one to get started.</Text>
-      </Box>
-    );
-  }
+  const { adapter } = useAdapter();
+  const { projects, loading, error, refresh } = useProjects();
+  const [mode, setMode] = useState<'idle' | 'project-info' | 'create' | 'edit' | 'delete' | 'status'>('idle');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
+  const [statusIndex, setStatusIndex] = useState(0);
 
   const columns = [
     {
@@ -72,17 +59,207 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
   // Clamp selectedIndex if data changed
   const clampedSelectedIndex = Math.min(selectedIndex, Math.max(0, projects.length - 1));
   const effectiveSelectedIndex = projects.length > 0 ? clampedSelectedIndex : 0;
+  const selectedProject = projects[effectiveSelectedIndex];
+
+  useInput((input, key) => {
+    if (mode !== 'idle') return;
+    if (input === 'n') {
+      setMode('create');
+      return;
+    }
+    if (input === 'e' && selectedProject) {
+      setMode('edit');
+      return;
+    }
+    if (input === 'f' && selectedProject) {
+      setMode('project-info');
+      return;
+    }
+    if (input === 'd' && selectedProject) {
+      setMode('delete');
+      return;
+    }
+    if (input === 's' && selectedProject) {
+      adapter.getAllowedTransitions('PROJECT', selectedProject.status).then((result) => {
+        if (result.success) {
+          setAllowedTransitions(result.data);
+          setMode('status');
+        }
+      });
+      return;
+    }
+    if (input === 'r') {
+      refresh();
+    }
+    if (key.escape && mode !== 'idle') {
+      setMode('idle');
+    }
+  });
+
+  const statusTargets = useMemo(() => allowedTransitions as ProjectStatus[], [allowedTransitions]);
+
+  useInput((input, key) => {
+    if (mode !== 'project-info') return;
+    if (key.escape || input === 'h' || key.leftArrow || key.return) {
+      setMode('idle');
+    }
+  }, { isActive: mode === 'project-info' });
+
+  useInput((input, key) => {
+    if (mode !== 'status') return;
+    if (input === 'j' || key.downArrow) {
+      setStatusIndex((prev) => (prev + 1) % Math.max(1, statusTargets.length));
+      return;
+    }
+    if (input === 'k' || key.upArrow) {
+      setStatusIndex((prev) => (prev - 1 + Math.max(1, statusTargets.length)) % Math.max(1, statusTargets.length));
+      return;
+    }
+    if (key.escape) {
+      setMode('idle');
+      return;
+    }
+    if (key.return && selectedProject && statusTargets[statusIndex]) {
+      const next = statusTargets[statusIndex];
+      adapter.setProjectStatus(selectedProject.id, next, selectedProject.version).then((result) => {
+        if (!result.success) {
+          setLocalError(result.error);
+        }
+        refresh();
+        setMode('idle');
+      });
+    }
+  }, { isActive: mode === 'status' });
 
   return (
     <Box paddingX={1} paddingY={1} flexDirection="column">
-      <EntityTable
-        columns={columns}
-        data={projects}
-        selectedIndex={effectiveSelectedIndex}
-        onSelectedIndexChange={onSelectedIndexChange}
-        onSelect={(project) => onSelectProject(project.id)}
-        onBack={onBack}
-      />
+      {loading ? (
+        <Text>Loading projects...</Text>
+      ) : null}
+      {!loading && error && !localError ? (
+        <Text color="red">Error: {error}</Text>
+      ) : null}
+
+      {localError ? (
+        <ErrorMessage message={localError} onDismiss={() => setLocalError(null)} />
+      ) : null}
+
+      {!loading && (!error || localError) ? (
+        projects.length === 0 && mode === 'idle' ? (
+          <EmptyState message="No projects found." hint="Press n to create a project." />
+        ) : (
+          <EntityTable
+            columns={columns}
+            data={projects}
+            selectedIndex={effectiveSelectedIndex}
+            onSelectedIndexChange={onSelectedIndexChange}
+            onSelect={(project) => onSelectProject(project.id)}
+            onBack={onBack}
+            isActive={mode === 'idle'}
+          />
+        )
+      ) : null}
+
+      {mode === 'create' ? (
+        <FormDialog
+          title="Create Project"
+          fields={[
+            { key: 'name', label: 'Name', required: true },
+            { key: 'summary', label: 'Summary', required: true },
+            { key: 'description', label: 'Description' },
+          ]}
+          onCancel={() => setMode('idle')}
+          onSubmit={(values) => {
+            adapter.createProject({
+              name: values.name ?? '',
+              summary: values.summary ?? '',
+              description: values.description || undefined,
+            }).then((result) => {
+              if (!result.success) {
+                setLocalError(result.error);
+              }
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'edit' && selectedProject ? (
+        <FormDialog
+          title="Edit Project"
+          fields={[
+            { key: 'name', label: 'Name', required: true, value: selectedProject.name },
+            { key: 'summary', label: 'Summary', required: true, value: selectedProject.summary },
+            { key: 'description', label: 'Description', value: selectedProject.description ?? '' },
+          ]}
+          onCancel={() => setMode('idle')}
+          onSubmit={(values) => {
+                adapter.updateProject(selectedProject.id, {
+              name: values.name ?? '',
+              summary: values.summary ?? '',
+              description: values.description || undefined,
+              version: selectedProject.version,
+            }).then((result) => {
+              if (!result.success) {
+                setLocalError(result.error);
+              }
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'delete' && selectedProject ? (
+        <ConfirmDialog
+          title="Delete Project"
+          message={`Delete "${selectedProject.name}"?`}
+          onCancel={() => setMode('idle')}
+          onConfirm={() => {
+            adapter.deleteProject(selectedProject.id).then((result) => {
+              if (!result.success) {
+                setLocalError(result.error);
+              }
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'status' && selectedProject ? (
+        <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1} marginTop={1}>
+          <Text bold>Set Project Status</Text>
+          {statusTargets.length === 0 ? (
+            <Text dimColor>No transitions available</Text>
+          ) : (
+            statusTargets.map((status, idx) => (
+              <Text key={status} inverse={idx === statusIndex}>
+                {idx === statusIndex ? '>' : ' '} {status}
+              </Text>
+            ))
+          )}
+          <Text dimColor>Enter apply • Esc cancel</Text>
+        </Box>
+      ) : null}
+
+      {mode === 'project-info' && selectedProject ? (
+        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginTop={1}>
+          <Text bold>Project Info</Text>
+          <Text bold>{selectedProject.name}</Text>
+          <Box>
+            <StatusBadge status={selectedProject.status} />
+            <Text> </Text>
+            <Text dimColor>
+              Tasks: {selectedProject.taskCounts.completed}/{selectedProject.taskCounts.total}
+            </Text>
+          </Box>
+          <Text>{selectedProject.summary}</Text>
+          {selectedProject.description ? <Text dimColor>{selectedProject.description}</Text> : null}
+          <Text dimColor>Esc/h/Enter close</Text>
+        </Box>
+      ) : null}
     </Box>
   );
 }

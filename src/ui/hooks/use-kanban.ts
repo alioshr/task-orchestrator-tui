@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useAdapter } from '../context/adapter-context';
 import type { Task } from 'task-orchestrator-bun/src/domain/types';
 import type { BoardColumn } from '../lib/types';
+import { useBoardData } from './use-data';
 
 /**
  * Standard Kanban column definitions
@@ -33,74 +34,16 @@ interface UseKanbanReturn {
  */
 export function useKanban(projectId: string): UseKanbanReturn {
   const { adapter } = useAdapter();
-  const [columns, setColumns] = useState<BoardColumn[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { columnsByStatus, loading, error, refresh } = useBoardData(projectId);
 
-  /**
-   * Refresh the board data
-   */
-  const refresh = useCallback(() => {
-    setRefreshTrigger((prev) => prev + 1);
-  }, []);
-
-  /**
-   * Fetch tasks and organize into columns
-   */
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchTasks = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const result = await adapter.getTasks({ projectId });
-
-        if (!isMounted) return;
-
-        if (result.success) {
-          // Group tasks by status
-          const tasksByStatus = new Map<string, Task[]>();
-
-          for (const task of result.data) {
-            const status = task.status;
-            if (!tasksByStatus.has(status)) {
-              tasksByStatus.set(status, []);
-            }
-            tasksByStatus.get(status)!.push(task);
-          }
-
-          // Build columns array with standard order
-          const newColumns: BoardColumn[] = KANBAN_STATUSES.map((statusDef) => ({
-            id: statusDef.id,
-            title: statusDef.title,
-            status: statusDef.status,
-            tasks: tasksByStatus.get(statusDef.status) || [],
-          }));
-
-          setColumns(newColumns);
-        } else {
-          setError(result.error);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchTasks();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [adapter, projectId, refreshTrigger]);
+  const columns = useMemo<BoardColumn[]>(() => (
+    KANBAN_STATUSES.map((statusDef) => ({
+      id: statusDef.id,
+      title: statusDef.title,
+      status: statusDef.status,
+      tasks: (columnsByStatus.get(statusDef.status) || []).map((card) => card.task),
+    }))
+  ), [columnsByStatus]);
 
   /**
    * Move a task to a new status
@@ -119,7 +62,8 @@ export function useKanban(projectId: string): UseKanbanReturn {
       }
 
       if (!task) {
-        setError(`Task ${taskId} not found`);
+        // Board may be stale; ask the caller to refresh and retry.
+        refresh();
         return false;
       }
 
@@ -132,11 +76,10 @@ export function useKanban(projectId: string): UseKanbanReturn {
           refresh();
           return true;
         } else {
-          setError(result.error);
+          refresh();
           return false;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to move task');
+      } catch (_err) {
         return false;
       }
     },

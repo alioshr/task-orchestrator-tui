@@ -8,7 +8,10 @@ import { SectionList } from '../components/section-list';
 import { DependencyList } from '../components/dependency-list';
 import { StatusActions } from '../components/status-actions';
 import { timeAgo } from '../../ui/lib/format';
-import type { TaskStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { TaskStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
+import { FormDialog } from '../components/form-dialog';
+import { ConfirmDialog } from '../components/confirm-dialog';
+import { ErrorMessage } from '../components/error-message';
 
 interface TaskDetailProps {
   taskId: string;
@@ -26,6 +29,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
+  const [mode, setMode] = useState<'idle' | 'edit' | 'delete'>('idle');
 
   // Fetch allowed transitions when task loads
   useEffect(() => {
@@ -47,6 +51,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
 
   // Handle keyboard navigation
   useInput((input, key) => {
+    if (mode !== 'idle') return;
     if (key.escape || input === 'h' || key.leftArrow) {
       onBack();
     }
@@ -61,6 +66,12 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         // From status, go to sections only if they exist
         return sections.length > 0 ? 'sections' : 'dependencies';
       });
+    }
+    if (input === 'e' && task) {
+      setMode('edit');
+    }
+    if (input === 'd' && task) {
+      setMode('delete');
     }
   });
 
@@ -199,9 +210,59 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
       {/* Help Footer */}
       <Box marginTop={1}>
         <Text dimColor>
-          ESC/h: Back | Tab: Switch Panel | r: Refresh
+          ESC/h: Back | Tab: Switch Panel | r: Refresh | e: Edit | d: Delete
         </Text>
       </Box>
+
+      {statusError ? <ErrorMessage message={statusError} onDismiss={() => setStatusError(null)} /> : null}
+
+      {mode === 'edit' ? (
+        <FormDialog
+          title="Edit Task"
+          fields={[
+            { key: 'title', label: 'Title', required: true, value: task.title },
+            { key: 'summary', label: 'Summary', required: true, value: task.summary },
+            { key: 'description', label: 'Description', value: task.description ?? '' },
+            { key: 'priority', label: 'Priority (HIGH/MEDIUM/LOW)', required: true, value: task.priority },
+            { key: 'complexity', label: 'Complexity (1-10)', required: true, value: String(task.complexity) },
+          ]}
+          onCancel={() => setMode('idle')}
+          onSubmit={(values) => {
+            adapter.updateTask(task.id, {
+              title: values.title ?? '',
+              summary: values.summary ?? '',
+              description: values.description || undefined,
+              priority: ((values.priority ?? task.priority) as Priority),
+              complexity: Number.parseInt(values.complexity ?? String(task.complexity), 10) || task.complexity,
+              version: task.version,
+            }).then((result) => {
+              if (!result.success) {
+                setStatusError(result.error);
+              }
+              refresh();
+              setMode('idle');
+            });
+          }}
+        />
+      ) : null}
+
+      {mode === 'delete' ? (
+        <ConfirmDialog
+          title="Delete Task"
+          message={`Delete "${task.title}"?`}
+          onCancel={() => setMode('idle')}
+          onConfirm={() => {
+            adapter.deleteTask(task.id).then((result) => {
+              if (!result.success) {
+                setStatusError(result.error);
+                setMode('idle');
+                return;
+              }
+              onBack();
+            });
+          }}
+        />
+      ) : null}
     </Box>
   );
 }

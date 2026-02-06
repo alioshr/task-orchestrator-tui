@@ -58,6 +58,10 @@ export function KanbanView({ projectId, activeColumnIndex, onActiveColumnIndexCh
       onBack();
       return;
     }
+    if (input === 'b') {
+      onBack();
+      return;
+    }
     if (input === 'r') {
       refresh();
       return;
