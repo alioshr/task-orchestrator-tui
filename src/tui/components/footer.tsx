@@ -17,11 +17,13 @@ export const Footer: React.FC<FooterProps> = ({ shortcuts }) => {
       >
         <Text> </Text>
       </Box>
-      <Box paddingX={3} gap={2}>
-        {shortcuts.map((shortcut) => (
-          <Text key={`${shortcut.key}-${shortcut.label}`}>
-            <Text dimColor>[{shortcut.key}]</Text> {shortcut.label}
-          </Text>
+      <Box paddingX={1} flexWrap="wrap">
+        {shortcuts.map((shortcut, i) => (
+          <Box key={`${shortcut.key}-${shortcut.label}`}>
+            {i > 0 ? <Text dimColor> · </Text> : null}
+            <Text color="cyan" bold>{shortcut.key}</Text>
+            <Text> {shortcut.label}</Text>
+          </Box>
         ))}
       </Box>
     </Box>
