@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.2.1...v1.3.0) (2026-02-07)
+
+
+### Features
+
+* add feature count column to project dashboard ([556da25](https://github.com/alioshr/task-orchestrator-tui/commit/556da25718556627caa416f1727d218fe5deaba1))
+
 ## [1.2.1](https://github.com/alioshr/task-orchestrator-tui/compare/v1.2.0...v1.2.1) (2026-02-07)
 
 
