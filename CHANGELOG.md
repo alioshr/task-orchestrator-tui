@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/alioshr/task-orchestrator-tui/compare/v1.0.0...v1.0.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* minor readme update ([0321faa](https://github.com/alioshr/task-orchestrator-tui/commit/0321faa7583238fca1a9f8fc29bd5a7708d0c54b))
+
 # 1.0.0 (2026-02-07)
 
 
