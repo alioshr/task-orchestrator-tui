@@ -1,6 +1,6 @@
 {
   "name": "@allpepper/task-orchestrator-tui",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Terminal UI for task orchestration - Kanban boards, tree views, and task management",
   "type": "module",
   "bin": {

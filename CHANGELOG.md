@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.0.1...v1.1.0) (2026-02-07)
+
+
+### Features
+
+* add cascade delete support for projects and features ([b9f6278](https://github.com/alioshr/task-orchestrator-tui/commit/b9f62784b9aba2a5f99612fd9d0f6af7c421e068))
+
 ## [1.0.1](https://github.com/alioshr/task-orchestrator-tui/compare/v1.0.0...v1.0.1) (2026-02-07)
 
 
