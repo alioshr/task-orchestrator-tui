@@ -138,6 +138,8 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         <PriorityBadge priority={feature.priority} />
         <Text>  Modified: </Text>
         <Text dimColor>{timeAgo(new Date(feature.modifiedAt))}</Text>
+        <Text>  ID: </Text>
+        <Text dimColor>{feature.id}</Text>
       </Box>
 
       {/* Divider */}

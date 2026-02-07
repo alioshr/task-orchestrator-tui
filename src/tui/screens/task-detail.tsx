@@ -140,6 +140,8 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <PriorityBadge priority={task.priority} />
         <Text>  Modified: </Text>
         <Text dimColor>{timeAgo(new Date(task.modifiedAt))}</Text>
+        <Text>  ID: </Text>
+        <Text dimColor>{task.id}</Text>
       </Box>
 
       {/* Divider */}
