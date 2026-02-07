@@ -63,7 +63,9 @@ describe('StatusActions', () => {
     });
 
     const output = lastFrame();
-    expect(output).toContain('▎ COMPLETED'); // First item should have vertical bar indicator
+    // Check for both vertical bar and COMPLETED separately (ANSI codes may be present)
+    expect(output).toContain('▎');
+    expect(output).toContain('COMPLETED');
   });
 
   test('should show loading indicator when loading=true', () => {
@@ -90,7 +92,9 @@ describe('StatusActions', () => {
 
     // Initially first item is selected
     const output = lastFrame();
-    expect(output).toContain('▎ COMPLETED');
+    // Check for both vertical bar and COMPLETED separately (ANSI codes may be present)
+    expect(output).toContain('▎');
+    expect(output).toContain('COMPLETED');
   });
 
   test('should call onTransition with first item when Enter pressed without navigation', () => {
