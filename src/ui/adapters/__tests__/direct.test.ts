@@ -314,7 +314,6 @@ describe('DirectAdapter', () => {
       if (!featureResult.success) return;
 
       const taskResult = tasks.createTask({
-        projectId: projectResult.data.id,
         featureId: featureResult.data.id,
         title: 'Child Task',
         summary: 'A child task',

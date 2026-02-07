@@ -34,20 +34,27 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
     {
       key: 'name',
       label: 'Name',
-      width: 50,
+      width: 45,
     },
     {
       key: 'status',
       label: 'Status',
-      width: 20,
+      width: 18,
       render: (_value: unknown, row: ProjectWithCounts, context?: { isSelected: boolean }) => (
         <StatusBadge status={row.status} isSelected={context?.isSelected} />
       ),
     },
     {
+      key: 'features',
+      label: 'Features',
+      width: 10,
+      render: (_value: unknown, row: ProjectWithCounts) =>
+        `${row.featureCounts.completed}/${row.featureCounts.total}`,
+    },
+    {
       key: 'tasks',
       label: 'Tasks',
-      width: 15,
+      width: 10,
       render: (_value: unknown, row: ProjectWithCounts) =>
         `${row.taskCounts.completed}/${row.taskCounts.total}`,
     },

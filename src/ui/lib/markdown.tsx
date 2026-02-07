@@ -64,7 +64,7 @@ function MarkdownLine({ line }: MarkdownLineProps) {
 
   // Header (## Header)
   const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
-  if (headerMatch) {
+  if (headerMatch && headerMatch[1] && headerMatch[2] !== undefined) {
     const level = headerMatch[1].length;
     const text = headerMatch[2];
     return (
@@ -78,7 +78,7 @@ function MarkdownLine({ line }: MarkdownLineProps) {
 
   // Bullet point (- item or * item)
   const bulletMatch = line.match(/^(\s*)([-*])\s+(.*)$/);
-  if (bulletMatch) {
+  if (bulletMatch && bulletMatch[1] !== undefined && bulletMatch[3] !== undefined) {
     const indent = bulletMatch[1].length;
     const content = bulletMatch[3];
     return (
@@ -114,7 +114,7 @@ function InlineMarkdown({ text }: InlineMarkdownProps) {
   while (remaining.length > 0) {
     // Check for inline code `code`
     const codeMatch = remaining.match(/^(.*?)`([^`]+)`(.*)$/);
-    if (codeMatch) {
+    if (codeMatch && codeMatch[2] !== undefined && codeMatch[3] !== undefined) {
       if (codeMatch[1]) {
         parts.push(<BoldMarkdown key={key++} text={codeMatch[1]} />);
       }
@@ -129,7 +129,7 @@ function InlineMarkdown({ text }: InlineMarkdownProps) {
 
     // Check for bold **text**
     const boldMatch = remaining.match(/^(.*?)\*\*([^*]+)\*\*(.*)$/);
-    if (boldMatch) {
+    if (boldMatch && boldMatch[2] !== undefined && boldMatch[3] !== undefined) {
       if (boldMatch[1]) {
         parts.push(<Text key={key++}>{boldMatch[1]}</Text>);
       }
@@ -160,7 +160,7 @@ function BoldMarkdown({ text }: { text: string }) {
 
   while (remaining.length > 0) {
     const boldMatch = remaining.match(/^(.*?)\*\*([^*]+)\*\*(.*)$/);
-    if (boldMatch) {
+    if (boldMatch && boldMatch[2] !== undefined && boldMatch[3] !== undefined) {
       if (boldMatch[1]) {
         parts.push(<Text key={key++}>{boldMatch[1]}</Text>);
       }

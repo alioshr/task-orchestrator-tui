@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Project, Task, Section, EntityType, TaskStatus, Priority, FeatureStatus } from '@allpepper/task-orchestrator';
+import type { Project, Task, Feature, Section, EntityType, TaskStatus, Priority, FeatureStatus } from '@allpepper/task-orchestrator';
 import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo, BoardCard, BoardTask } from '../lib/types';
 import type { TreeRow } from '../../tui/components/tree-view';
 
@@ -43,10 +43,44 @@ export function calculateTaskCountsByProject(tasks: Task[]): Map<string, TaskCou
 }
 
 /**
- * Project with task count information for dashboard display
+ * Feature counts structure
+ */
+export interface FeatureCounts {
+  total: number;
+  completed: number;
+}
+
+/**
+ * Terminal feature statuses considered "completed"
+ */
+const COMPLETED_FEATURE_STATUSES = ['COMPLETED', 'DEPLOYED'];
+
+/**
+ * Group features by project ID and calculate counts for each
+ */
+export function calculateFeatureCountsByProject(featureList: Feature[]): Map<string, FeatureCounts> {
+  const countsByProject = new Map<string, FeatureCounts>();
+
+  for (const feature of featureList) {
+    if (feature.projectId) {
+      const counts = countsByProject.get(feature.projectId) || { total: 0, completed: 0 };
+      counts.total++;
+      if (COMPLETED_FEATURE_STATUSES.includes(feature.status)) {
+        counts.completed++;
+      }
+      countsByProject.set(feature.projectId, counts);
+    }
+  }
+
+  return countsByProject;
+}
+
+/**
+ * Project with task and feature count information for dashboard display
  */
 export interface ProjectWithCounts extends Project {
   taskCounts: TaskCounts;
+  featureCounts: FeatureCounts;
 }
 
 /**
@@ -70,10 +104,11 @@ export function useProjects() {
     setLoading(true);
     setError(null);
 
-    // Fetch projects and all tasks in parallel
-    const [projectsResult, tasksResult] = await Promise.all([
+    // Fetch projects, tasks, and features in parallel
+    const [projectsResult, tasksResult, featuresResult] = await Promise.all([
       adapter.getProjects(),
       adapter.getTasks({ limit: 1000 }), // Get all tasks to count by project
+      adapter.getFeatures({ limit: 1000 }), // Get all features to count by project
     ]);
 
     if (!projectsResult.success) {
@@ -87,10 +122,16 @@ export function useProjects() {
       ? calculateTaskCountsByProject(tasksResult.data)
       : new Map<string, TaskCounts>();
 
-    // Merge task counts into projects
+    // Build feature counts by project using shared utility
+    const featureCountsByProject = featuresResult.success
+      ? calculateFeatureCountsByProject(featuresResult.data)
+      : new Map<string, FeatureCounts>();
+
+    // Merge task and feature counts into projects
     const projectsWithCounts: ProjectWithCounts[] = projectsResult.data.map(project => ({
       ...project,
       taskCounts: taskCountsByProject.get(project.id) || { total: 0, completed: 0 },
+      featureCounts: featureCountsByProject.get(project.id) || { total: 0, completed: 0 },
     }));
 
     setProjects(projectsWithCounts);
