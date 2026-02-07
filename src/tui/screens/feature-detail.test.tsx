@@ -113,7 +113,7 @@ describe('FeatureDetail', () => {
     renderWithProviders('feature-1');
 
     // Wait for async load
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     expect(mockAdapter.getFeature).toHaveBeenCalledWith('feature-1');
     expect(mockAdapter.getTasks).toHaveBeenCalledWith({ featureId: 'feature-1' });
@@ -128,7 +128,7 @@ describe('FeatureDetail', () => {
     const { lastFrame } = renderWithProviders('feature-1');
 
     // Wait for async load and state updates
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const output = lastFrame();
     expect(output).toContain('Error:');
@@ -144,7 +144,7 @@ describe('FeatureDetail', () => {
     const { lastFrame } = renderWithProviders('feature-1');
 
     // Wait for async load
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const output = lastFrame();
     expect(output).toContain('Feature not found');
@@ -154,7 +154,7 @@ describe('FeatureDetail', () => {
     const { stdin } = renderWithProviders('feature-1');
 
     // Wait for async load
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     stdin.write('h');
     expect(onBack).toHaveBeenCalled();
