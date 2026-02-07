@@ -76,3 +76,4 @@ The relationship is managed through a file: dependency in package.json:
 - Data hooks for efficient data fetching
 - Direct adapter for in-process data access
 - Support for dark and light themes
+
