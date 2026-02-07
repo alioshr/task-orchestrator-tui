@@ -19,7 +19,15 @@
     "type": "git",
     "url": "git+https://github.com/alioshr/task-orchestrator-tui.git"
   },
-  "keywords": ["cli", "tui", "task-manager", "kanban", "ink", "react", "bun"],
+  "keywords": [
+    "cli",
+    "tui",
+    "task-manager",
+    "kanban",
+    "ink",
+    "react",
+    "bun"
+  ],
   "author": "alioshr",
   "license": "MIT",
   "bugs": {
