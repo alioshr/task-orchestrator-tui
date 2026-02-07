@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.1.0...v1.2.0) (2026-02-07)
+
+
+### Features
+
+* add markdown rendering for section content ([46b3e27](https://github.com/alioshr/task-orchestrator-tui/commit/46b3e279176246b34f295be27deccd450712dd31))
+
 # [1.1.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.0.1...v1.1.0) (2026-02-07)
 
 
