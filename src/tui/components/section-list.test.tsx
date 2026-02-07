@@ -2,8 +2,8 @@ import { describe, test, expect } from 'bun:test';
 import React from 'react';
 import { render } from 'ink-testing-library';
 import { SectionList } from './section-list';
-import type { Section } from 'task-orchestrator-bun/src/domain/types';
-import { EntityType, ContentFormat } from 'task-orchestrator-bun/src/domain/types';
+import type { Section } from '@allpepper/task-orchestrator';
+import { EntityType, ContentFormat } from '@allpepper/task-orchestrator';
 import { ThemeProvider } from '../../ui/context/theme-context';
 
 describe('SectionList', () => {

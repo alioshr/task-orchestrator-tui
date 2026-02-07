@@ -3,7 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanCard } from '../kanban-card';
 import { ThemeProvider } from '../../../ui/context/theme-context';
-import { Priority, TaskStatus, LockStatus } from 'task-orchestrator-bun/src/domain/types';
+import { Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
 import type { BoardTask } from '../../../ui/lib/types';
 
 // Helper to render with ThemeProvider

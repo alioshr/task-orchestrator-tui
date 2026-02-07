@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { Section } from 'task-orchestrator-bun/src/domain/types';
+import type { Section } from '@allpepper/task-orchestrator';
 import { useTheme } from '../../ui/context/theme-context';
 
 export interface SectionListProps {

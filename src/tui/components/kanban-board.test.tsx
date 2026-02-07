@@ -3,7 +3,7 @@ import { test, expect, describe } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanBoard } from './kanban-board';
 import type { FeatureBoardColumn, BoardFeature } from '../../ui/lib/types';
-import { FeatureStatus, Priority, TaskStatus, LockStatus } from 'task-orchestrator-bun/src/domain/types';
+import { FeatureStatus, Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
 import { ThemeProvider } from '../../ui/context/theme-context';
 
 function makeFeature(overrides: Partial<BoardFeature> & { id: string; name: string }): BoardFeature {

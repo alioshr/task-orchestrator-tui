@@ -3,7 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import { StatusBadge } from './status-badge';
 import { PriorityBadge } from './priority-badge';
 import { useTheme } from '../../ui/context/theme-context';
-import type { Feature, Task } from 'task-orchestrator-bun/src/domain/types';
+import type { Feature, Task } from '@allpepper/task-orchestrator';
 
 export type TreeRow =
   | { type: 'feature'; feature: Feature; taskCount: number; expanded: boolean; expandable?: boolean }

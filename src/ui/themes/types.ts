@@ -1,4 +1,4 @@
-import type { Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { Priority } from '@allpepper/task-orchestrator';
 
 /**
  * All possible status values across Project, Feature, and Task

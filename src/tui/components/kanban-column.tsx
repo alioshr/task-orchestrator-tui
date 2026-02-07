@@ -39,7 +39,7 @@ export function KanbanColumn({
   // Chrome overhead: column border (2) + padding (2) + header (2) + gap (1) = ~7
   const columnChromeLines = 7;
   const maxContentLines = effectiveHeight - columnChromeLines;
-  const maxTaskHeight = Math.max(2, Math.floor((effectiveHeight - columnChromeLines) / 2));
+  const maxTaskHeight = Math.max(2, Math.floor((effectiveHeight - columnChromeLines) / 3));
 
   // Compute heights for all cards
   const cardHeights = column.features.map((feature) =>

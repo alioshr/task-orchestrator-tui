@@ -9,7 +9,7 @@ import { SectionList } from '../components/section-list';
 import { DependencyList } from '../components/dependency-list';
 import { StatusActions } from '../components/status-actions';
 import { timeAgo } from '../../ui/lib/format';
-import type { TaskStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { TaskStatus, Priority } from '@allpepper/task-orchestrator';
 import { FormDialog } from '../components/form-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import { ErrorMessage } from '../components/error-message';

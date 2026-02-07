@@ -15,7 +15,7 @@ import type {
   Section,
   EntityType,
   Priority,
-} from 'task-orchestrator-bun/src/domain/types';
+} from '@allpepper/task-orchestrator';
 
 import type {
   SearchResults,

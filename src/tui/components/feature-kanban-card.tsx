@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { BoardFeature } from '../../ui/lib/types';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { Task } from '@allpepper/task-orchestrator';
 import { PriorityBadge } from './priority-badge';
 import { StatusBadge } from './status-badge';
 import { useTheme } from '../../ui/context/theme-context';
@@ -50,6 +50,11 @@ export function getFeatureCardHeight(
     const task = tasks[i]!;
     const taskTitleLines = Math.ceil(task.title.length / (contentWidth - 4)) || 1; // indent for tree chrome
     taskLines += taskTitleLines + 1; // title lines + status line
+  }
+
+  // Account for gap={1} between task rows
+  if (visibleCount > 1) {
+    taskLines += visibleCount - 1;
   }
 
   return collapsedHeight + taskLines;
@@ -115,6 +120,7 @@ export function FeatureKanbanCard({
       borderColor={isSelected ? theme.colors.accent : theme.colors.border}
       flexDirection="column"
       paddingX={1}
+      width={columnWidth}
     >
       {/* Feature name - full wrap, no truncation */}
       <Text bold={isSelected} wrap="wrap">
@@ -140,23 +146,25 @@ export function FeatureKanbanCard({
           )}
 
           {/* Visible tasks */}
-          {visibleTasks.map((task, index) => {
-            const actualIndex = windowStart + index;
-            const isTaskSelected = actualIndex === selectedTaskIndex;
-            const isLast = actualIndex === taskCount - 1;
-            const treeChar = isLast ? '└─' : '├─';
+          <Box flexDirection="column" gap={1}>
+            {visibleTasks.map((task, index) => {
+              const actualIndex = windowStart + index;
+              const isTaskSelected = actualIndex === selectedTaskIndex;
+              const isLast = actualIndex === taskCount - 1;
+              const treeChar = isLast ? '└─' : '├─';
 
-            return (
-              <TaskRow
-                key={task.id}
-                task={task}
-                isSelected={isTaskSelected}
-                treeChar={treeChar}
-                accentColor={theme.colors.accent}
-                mutedColor={theme.colors.muted}
-              />
-            );
-          })}
+              return (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  isSelected={isTaskSelected}
+                  treeChar={treeChar}
+                  accentColor={theme.colors.accent}
+                  mutedColor={theme.colors.muted}
+                />
+              );
+            })}
+          </Box>
 
           {/* Scroll-down indicator */}
           {hasTasksBelow && (

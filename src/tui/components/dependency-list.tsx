@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { Task } from '@allpepper/task-orchestrator';
 import type { DependencyInfo } from '../../ui/lib/types';
 import { StatusBadge } from './status-badge';
 import { useTheme } from '../../ui/context/theme-context';

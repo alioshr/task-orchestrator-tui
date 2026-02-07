@@ -22,7 +22,7 @@ import type {
   Priority,
   Section,
   EntityType,
-} from 'task-orchestrator-bun/src/domain/types';
+} from '@allpepper/task-orchestrator';
 import type {
   SearchResults,
   DependencyInfo,
@@ -31,15 +31,15 @@ import type {
 } from '../lib/types';
 
 // Import repos individually since barrel export is incomplete
-import * as projects from 'task-orchestrator-bun/src/repos/projects';
-import * as features from 'task-orchestrator-bun/src/repos/features';
-import * as tasks from 'task-orchestrator-bun/src/repos/tasks';
-import * as sections from 'task-orchestrator-bun/src/repos/sections';
-import * as dependencies from 'task-orchestrator-bun/src/repos/dependencies';
+import * as projects from '@allpepper/task-orchestrator/src/repos/projects';
+import * as features from '@allpepper/task-orchestrator/src/repos/features';
+import * as tasks from '@allpepper/task-orchestrator/src/repos/tasks';
+import * as sections from '@allpepper/task-orchestrator/src/repos/sections';
+import * as dependencies from '@allpepper/task-orchestrator/src/repos/dependencies';
 import {
   getAllowedTransitions,
   type ContainerType,
-} from 'task-orchestrator-bun/src/services/status-validator';
+} from '@allpepper/task-orchestrator/src/services/status-validator';
 
 /**
  * DirectAdapter implementation

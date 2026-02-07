@@ -10,7 +10,7 @@ import { ConfirmDialog } from '../components/confirm-dialog';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
-import type { FeatureStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { FeatureStatus, Priority } from '@allpepper/task-orchestrator';
 
 interface ProjectViewProps {
   projectId: string;

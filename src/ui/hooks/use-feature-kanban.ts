@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Feature, FeatureStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { Feature, FeatureStatus } from '@allpepper/task-orchestrator';
 import type { BoardFeature, FeatureBoardColumn } from '../lib/types';
 
 /**
@@ -37,7 +37,7 @@ interface UseFeatureKanbanReturn {
 export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
   const { adapter } = useAdapter();
   const [features, setFeatures] = useState<Feature[]>([]);
-  const [tasksByFeature, setTasksByFeature] = useState<Map<string, import('task-orchestrator-bun/src/domain/types').Task[]>>(new Map());
+  const [tasksByFeature, setTasksByFeature] = useState<Map<string, import('@allpepper/task-orchestrator/src/domain/types').Task[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -70,7 +70,7 @@ export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
     setFeatures(featuresResult.data);
 
     // Group tasks by featureId
-    const grouped = new Map<string, import('task-orchestrator-bun/src/domain/types').Task[]>();
+    const grouped = new Map<string, import('@allpepper/task-orchestrator/src/domain/types').Task[]>();
     for (const task of tasksResult.data) {
       if (task.featureId) {
         const list = grouped.get(task.featureId) || [];

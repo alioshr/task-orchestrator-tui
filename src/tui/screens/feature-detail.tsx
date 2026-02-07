@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { useFeature } from '../../ui/hooks/use-data';
-import type { FeatureStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { FeatureStatus, Priority } from '@allpepper/task-orchestrator';
 import { StatusBadge } from '../components/status-badge';
 import { PriorityBadge } from '../components/priority-badge';
 import { SectionList } from '../components/section-list';

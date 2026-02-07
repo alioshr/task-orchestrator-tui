@@ -1,4 +1,4 @@
-import type { Task, Feature, Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { Task, Feature, Priority } from '@allpepper/task-orchestrator';
 
 /**
  * Navigation screens for the TUI

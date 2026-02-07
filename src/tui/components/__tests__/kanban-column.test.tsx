@@ -3,8 +3,8 @@ import { describe, test, expect } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanColumn } from '../kanban-column';
 import { ThemeProvider } from '../../../ui/context/theme-context';
-import { FeatureStatus, Priority, TaskStatus, LockStatus } from 'task-orchestrator-bun/src/domain/types';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import { FeatureStatus, Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
+import type { Task } from '@allpepper/task-orchestrator';
 import type { FeatureBoardColumn, BoardFeature } from '../../../ui/lib/types';
 
 // Helper to render with ThemeProvider

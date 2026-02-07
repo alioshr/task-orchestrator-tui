@@ -11,7 +11,7 @@ import { ConfirmDialog } from '../components/confirm-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
 import { FormDialog } from '../components/form-dialog';
-import type { ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { ProjectStatus } from '@allpepper/task-orchestrator';
 
 interface DashboardProps {
   selectedIndex: number;

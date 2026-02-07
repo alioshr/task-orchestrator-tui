@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'bun:test';
-import { db } from 'task-orchestrator-bun/src/db/client';
-import { runMigrations } from 'task-orchestrator-bun/src/db/migrate';
+import { db } from '@allpepper/task-orchestrator';
+import { runMigrations } from '@allpepper/task-orchestrator/src/db/migrate';
 import { DirectAdapter } from '../direct';
-import { ProjectStatus, FeatureStatus, TaskStatus, Priority } from 'task-orchestrator-bun/src/domain/types';
-import * as projects from 'task-orchestrator-bun/src/repos/projects';
-import * as features from 'task-orchestrator-bun/src/repos/features';
-import * as tasks from 'task-orchestrator-bun/src/repos/tasks';
+import { ProjectStatus, FeatureStatus, TaskStatus, Priority } from '@allpepper/task-orchestrator';
+import * as projects from '@allpepper/task-orchestrator/src/repos/projects';
+import * as features from '@allpepper/task-orchestrator/src/repos/features';
+import * as tasks from '@allpepper/task-orchestrator/src/repos/tasks';
 
 // Run migrations once before all tests
 beforeAll(() => {

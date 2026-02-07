@@ -18,7 +18,7 @@ async function main() {
   const [{ render }, React, { runMigrations }, { App }] = await Promise.all([
     import('ink'),
     import('react'),
-    import('task-orchestrator-bun/src/db/migrate'),
+    import('@allpepper/task-orchestrator/src/db/migrate'),
     import('./app'),
   ]);
 

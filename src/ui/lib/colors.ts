@@ -1,5 +1,5 @@
 import type { Theme, StatusKey } from '../themes/types';
-import type { Priority } from 'task-orchestrator-bun/src/domain/types';
+import type { Priority } from '@allpepper/task-orchestrator';
 
 /**
  * Get the color for a status value

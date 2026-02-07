@@ -2,9 +2,9 @@ import { test, expect, describe, mock } from 'bun:test';
 import React from 'react';
 import { render } from 'ink-testing-library';
 import { DependencyList } from './dependency-list';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { Task } from '@allpepper/task-orchestrator';
 import type { DependencyInfo } from '../../ui/lib/types';
-import { TaskStatus, Priority, LockStatus } from 'task-orchestrator-bun/src/domain/types';
+import { TaskStatus, Priority, LockStatus } from '@allpepper/task-orchestrator';
 import { ThemeProvider } from '../../ui/context/theme-context';
 
 // Helper to wrap component with ThemeProvider

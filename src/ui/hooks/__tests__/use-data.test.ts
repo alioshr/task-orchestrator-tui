@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { TaskStatus, Priority, FeatureStatus, LockStatus } from 'task-orchestrator-bun/src/domain/types';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import { TaskStatus, Priority, FeatureStatus, LockStatus } from '@allpepper/task-orchestrator';
+import type { Task } from '@allpepper/task-orchestrator';
 import type { FeatureWithTasks } from '../../lib/types';
 import type { TreeRow } from '../../../tui/components/tree-view';
 

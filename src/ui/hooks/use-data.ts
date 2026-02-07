@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Project, Task, Section, EntityType, TaskStatus, Priority, FeatureStatus } from 'task-orchestrator-bun/src/domain/types';
+import type { Project, Task, Section, EntityType, TaskStatus, Priority, FeatureStatus } from '@allpepper/task-orchestrator';
 import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo, BoardCard, BoardTask } from '../lib/types';
 import type { TreeRow } from '../../tui/components/tree-view';
 

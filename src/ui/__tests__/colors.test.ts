@@ -10,7 +10,7 @@ import {
 } from '../lib/colors';
 import { darkTheme } from '../themes/dark';
 import { lightTheme } from '../themes/light';
-import { Priority } from 'task-orchestrator-bun/src/domain/types';
+import { Priority } from '@allpepper/task-orchestrator';
 
 describe('color utilities', () => {
   describe('getStatusColor', () => {

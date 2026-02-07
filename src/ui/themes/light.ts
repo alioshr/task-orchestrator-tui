@@ -1,5 +1,5 @@
 import type { Theme } from './types';
-import { Priority } from 'task-orchestrator-bun/src/domain/types';
+import { Priority } from '@allpepper/task-orchestrator';
 
 export const lightTheme: Theme = {
   name: 'light',

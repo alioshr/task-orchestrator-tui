@@ -5,8 +5,8 @@ import { FeatureDetail } from './feature-detail';
 import { ThemeProvider } from '../../ui/context/theme-context';
 import { AdapterProvider } from '../../ui/context/adapter-context';
 import type { DataAdapter } from '../../ui/adapters/types';
-import { FeatureStatus, TaskStatus, Priority, LockStatus } from 'task-orchestrator-bun/src/domain/types';
-import type { Feature, Task } from 'task-orchestrator-bun/src/domain/types';
+import { FeatureStatus, TaskStatus, Priority, LockStatus } from '@allpepper/task-orchestrator';
+import type { Feature, Task } from '@allpepper/task-orchestrator';
 
 describe('FeatureDetail', () => {
   const mockFeature: Feature = {

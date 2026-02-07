@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Task } from 'task-orchestrator-bun/src/domain/types';
+import type { Task } from '@allpepper/task-orchestrator';
 import type { BoardColumn } from '../lib/types';
 import { useBoardData } from './use-data';
 

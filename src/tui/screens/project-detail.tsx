@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
-import type { Project, Feature, ProjectStatus, Section, EntityType } from 'task-orchestrator-bun/src/domain/types';
+import type { Project, Feature, ProjectStatus, Section, EntityType } from '@allpepper/task-orchestrator';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';

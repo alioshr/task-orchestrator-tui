@@ -6,7 +6,7 @@ import { ThemeProvider } from '../../ui/context/theme-context';
 import { AdapterProvider } from '../../ui/context/adapter-context';
 import type { DataAdapter } from '../../ui/adapters/types';
 import type { FeatureBoardColumn } from '../../ui/lib/types';
-import { FeatureStatus, TaskStatus, Priority, LockStatus, ProjectStatus } from 'task-orchestrator-bun/src/domain/types';
+import { FeatureStatus, TaskStatus, Priority, LockStatus, ProjectStatus } from '@allpepper/task-orchestrator';
 
 interface UseFeatureKanbanReturn {
   columns: FeatureBoardColumn[];
