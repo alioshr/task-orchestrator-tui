@@ -213,10 +213,10 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
       {mode === 'delete' && selectedProject ? (
         <ConfirmDialog
           title="Delete Project"
-          message={`Delete "${selectedProject.name}"?`}
+          message={`Delete "${selectedProject.name}" and all its features/tasks?`}
           onCancel={() => setMode('idle')}
           onConfirm={() => {
-            adapter.deleteProject(selectedProject.id).then((result) => {
+            adapter.deleteProject(selectedProject.id, { cascade: true }).then((result) => {
               if (!result.success) {
                 setLocalError(result.error);
               }

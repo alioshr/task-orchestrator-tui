@@ -270,4 +270,159 @@ describe('DirectAdapter', () => {
       }
     });
   });
+
+  describe('Cascade Delete', () => {
+    it('should fail to delete project with children when cascade is not set', async () => {
+      const projectResult = projects.createProject({
+        name: 'Project with Children',
+        summary: 'Has features and tasks',
+      });
+      expect(projectResult.success).toBe(true);
+      if (!projectResult.success) return;
+
+      const featureResult = features.createFeature({
+        projectId: projectResult.data.id,
+        name: 'Child Feature',
+        summary: 'A child feature',
+        priority: Priority.HIGH,
+      });
+      expect(featureResult.success).toBe(true);
+
+      const result = await adapter.deleteProject(projectResult.data.id);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.code).toBe('HAS_CHILDREN');
+        expect(result.error).toContain('cascade: true');
+      }
+    });
+
+    it('should delete project with children when cascade is true', async () => {
+      const projectResult = projects.createProject({
+        name: 'Project to Cascade Delete',
+        summary: 'Will be cascade deleted',
+      });
+      expect(projectResult.success).toBe(true);
+      if (!projectResult.success) return;
+
+      const featureResult = features.createFeature({
+        projectId: projectResult.data.id,
+        name: 'Child Feature',
+        summary: 'A child feature',
+        priority: Priority.HIGH,
+      });
+      expect(featureResult.success).toBe(true);
+      if (!featureResult.success) return;
+
+      const taskResult = tasks.createTask({
+        projectId: projectResult.data.id,
+        featureId: featureResult.data.id,
+        title: 'Child Task',
+        summary: 'A child task',
+        priority: Priority.MEDIUM,
+        complexity: 3,
+      });
+      expect(taskResult.success).toBe(true);
+      if (!taskResult.success) return;
+
+      const result = await adapter.deleteProject(projectResult.data.id, { cascade: true });
+      expect(result.success).toBe(true);
+
+      // Verify all entities are deleted
+      const projectCheck = await adapter.getProject(projectResult.data.id);
+      expect(projectCheck.success).toBe(false);
+
+      const featureCheck = await adapter.getFeature(featureResult.data.id);
+      expect(featureCheck.success).toBe(false);
+
+      const taskCheck = await adapter.getTask(taskResult.data.id);
+      expect(taskCheck.success).toBe(false);
+    });
+
+    it('should fail to delete feature with tasks when cascade is not set', async () => {
+      const featureResult = features.createFeature({
+        name: 'Feature with Tasks',
+        summary: 'Has tasks',
+        priority: Priority.HIGH,
+      });
+      expect(featureResult.success).toBe(true);
+      if (!featureResult.success) return;
+
+      const taskResult = tasks.createTask({
+        featureId: featureResult.data.id,
+        title: 'Child Task',
+        summary: 'A child task',
+        priority: Priority.MEDIUM,
+        complexity: 3,
+      });
+      expect(taskResult.success).toBe(true);
+
+      const result = await adapter.deleteFeature(featureResult.data.id);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.code).toBe('HAS_CHILDREN');
+        expect(result.error).toContain('cascade: true');
+      }
+    });
+
+    it('should delete feature with tasks when cascade is true', async () => {
+      const featureResult = features.createFeature({
+        name: 'Feature to Cascade Delete',
+        summary: 'Will be cascade deleted',
+        priority: Priority.HIGH,
+      });
+      expect(featureResult.success).toBe(true);
+      if (!featureResult.success) return;
+
+      const taskResult = tasks.createTask({
+        featureId: featureResult.data.id,
+        title: 'Child Task',
+        summary: 'A child task',
+        priority: Priority.MEDIUM,
+        complexity: 3,
+      });
+      expect(taskResult.success).toBe(true);
+      if (!taskResult.success) return;
+
+      const result = await adapter.deleteFeature(featureResult.data.id, { cascade: true });
+      expect(result.success).toBe(true);
+
+      // Verify entities are deleted
+      const featureCheck = await adapter.getFeature(featureResult.data.id);
+      expect(featureCheck.success).toBe(false);
+
+      const taskCheck = await adapter.getTask(taskResult.data.id);
+      expect(taskCheck.success).toBe(false);
+    });
+
+    it('should delete empty project without cascade option', async () => {
+      const projectResult = projects.createProject({
+        name: 'Empty Project',
+        summary: 'No children',
+      });
+      expect(projectResult.success).toBe(true);
+      if (!projectResult.success) return;
+
+      const result = await adapter.deleteProject(projectResult.data.id);
+      expect(result.success).toBe(true);
+
+      const projectCheck = await adapter.getProject(projectResult.data.id);
+      expect(projectCheck.success).toBe(false);
+    });
+
+    it('should delete empty feature without cascade option', async () => {
+      const featureResult = features.createFeature({
+        name: 'Empty Feature',
+        summary: 'No tasks',
+        priority: Priority.MEDIUM,
+      });
+      expect(featureResult.success).toBe(true);
+      if (!featureResult.success) return;
+
+      const result = await adapter.deleteFeature(featureResult.data.id);
+      expect(result.success).toBe(true);
+
+      const featureCheck = await adapter.getFeature(featureResult.data.id);
+      expect(featureCheck.success).toBe(false);
+    });
+  });
 });

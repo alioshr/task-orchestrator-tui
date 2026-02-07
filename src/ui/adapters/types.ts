@@ -102,7 +102,7 @@ export interface DataAdapter {
     }
   ): Promise<Result<Project>>;
 
-  deleteProject(id: string): Promise<Result<boolean>>;
+  deleteProject(id: string, options?: { cascade?: boolean }): Promise<Result<boolean>>;
 
   // ============================================================================
   // Features
@@ -147,7 +147,7 @@ export interface DataAdapter {
     }
   ): Promise<Result<Feature>>;
 
-  deleteFeature(id: string): Promise<Result<boolean>>;
+  deleteFeature(id: string, options?: { cascade?: boolean }): Promise<Result<boolean>>;
 
   // ============================================================================
   // Tasks

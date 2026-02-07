@@ -112,8 +112,8 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve(projects.updateProject(id, params));
   }
 
-  async deleteProject(id: string): Promise<Result<boolean>> {
-    return Promise.resolve(projects.deleteProject(id));
+  async deleteProject(id: string, options?: { cascade?: boolean }): Promise<Result<boolean>> {
+    return Promise.resolve(projects.deleteProject(id, options));
   }
 
   // ============================================================================
@@ -188,8 +188,8 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve(features.updateFeature(id, params));
   }
 
-  async deleteFeature(id: string): Promise<Result<boolean>> {
-    return Promise.resolve(features.deleteFeature(id));
+  async deleteFeature(id: string, options?: { cascade?: boolean }): Promise<Result<boolean>> {
+    return Promise.resolve(features.deleteFeature(id, options));
   }
 
   // ============================================================================

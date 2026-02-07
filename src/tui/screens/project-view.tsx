@@ -369,10 +369,10 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
           return (
             <ConfirmDialog
               title="Delete Feature"
-              message={`Delete "${feature.name}"?`}
+              message={`Delete "${feature.name}" and all its tasks?`}
               onCancel={() => setMode('idle')}
               onConfirm={() => {
-                adapter.deleteFeature(feature.id).then((result) => {
+                adapter.deleteFeature(feature.id, { cascade: true }).then((result) => {
                   if (!result.success) setLocalError(result.error);
                   refresh();
                   setMode('idle');
