@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/alioshr/task-orchestrator-tui/compare/v1.2.0...v1.2.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* add refresh to dashboard legend and remove projectId from createTask ([2ea91c8](https://github.com/alioshr/task-orchestrator-tui/commit/2ea91c845a54f37fd0268e1ce28506f5794b534c))
+
 # [1.2.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.1.0...v1.2.0) (2026-02-07)
 
 
