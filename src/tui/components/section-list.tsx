@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { Section } from '@allpepper/task-orchestrator';
 import { useTheme } from '../../ui/context/theme-context';
+import { MarkdownText } from '../../ui/lib/markdown';
 
 export interface SectionListProps {
   sections: Section[];
@@ -83,8 +84,8 @@ export function SectionList({
                     </Text>
                   </Box>
                 )}
-                <Box>
-                  <Text>{section.content}</Text>
+                <Box flexDirection="column">
+                  <MarkdownText>{section.content}</MarkdownText>
                 </Box>
               </Box>
             )}
