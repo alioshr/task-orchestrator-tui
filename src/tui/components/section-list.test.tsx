@@ -4,6 +4,7 @@ import { render } from 'ink-testing-library';
 import { SectionList } from './section-list';
 import type { Section } from 'task-orchestrator-bun/src/domain/types';
 import { EntityType, ContentFormat } from 'task-orchestrator-bun/src/domain/types';
+import { ThemeProvider } from '../../ui/context/theme-context';
 
 describe('SectionList', () => {
   const mockSections: Section[] = [
@@ -39,11 +40,13 @@ describe('SectionList', () => {
 
   test('should render with default props', () => {
     const { lastFrame } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();
@@ -54,11 +57,13 @@ describe('SectionList', () => {
 
   test('should display expanded sections by default', () => {
     const { lastFrame } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();
@@ -68,11 +73,13 @@ describe('SectionList', () => {
 
   test('should show usage description when expanded', () => {
     const { lastFrame } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();
@@ -81,11 +88,13 @@ describe('SectionList', () => {
 
   test('should handle empty sections array', () => {
     const { lastFrame } = render(
-      <SectionList
-        sections={[]}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={[]}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();
@@ -94,11 +103,13 @@ describe('SectionList', () => {
 
   test('should show expand/collapse indicators', () => {
     const { lastFrame } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();
@@ -111,13 +122,15 @@ describe('SectionList', () => {
   test('should navigate with j key', () => {
     const indices: number[] = [];
     const { stdin } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={(index) => {
-          indices.push(index);
-        }}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={(index) => {
+            indices.push(index);
+          }}
+        />
+      </ThemeProvider>
     );
 
     // Press j to move down
@@ -128,13 +141,15 @@ describe('SectionList', () => {
   test('should navigate with arrow keys', () => {
     const indices: number[] = [];
     const { stdin } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={(index) => {
-          indices.push(index);
-        }}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={(index) => {
+            indices.push(index);
+          }}
+        />
+      </ThemeProvider>
     );
 
     // Press down arrow
@@ -145,13 +160,15 @@ describe('SectionList', () => {
   test('should wrap navigation at boundaries', () => {
     const indices: number[] = [];
     const { stdin } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={(index) => {
-          indices.push(index);
-        }}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={(index) => {
+            indices.push(index);
+          }}
+        />
+      </ThemeProvider>
     );
 
     // Press k from first item (should wrap to last)
@@ -162,14 +179,16 @@ describe('SectionList', () => {
   test('should respect isActive prop', () => {
     const indices: number[] = [];
     const { stdin } = render(
-      <SectionList
-        sections={mockSections}
-        selectedIndex={0}
-        onSelectedIndexChange={(index) => {
-          indices.push(index);
-        }}
-        isActive={false}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={mockSections}
+          selectedIndex={0}
+          onSelectedIndexChange={(index) => {
+            indices.push(index);
+          }}
+          isActive={false}
+        />
+      </ThemeProvider>
     );
 
     // Press j - should not navigate when inactive
@@ -186,11 +205,13 @@ describe('SectionList', () => {
     ];
 
     const { lastFrame } = render(
-      <SectionList
-        sections={sectionsNoDesc}
-        selectedIndex={0}
-        onSelectedIndexChange={() => {}}
-      />
+      <ThemeProvider>
+        <SectionList
+          sections={sectionsNoDesc}
+          selectedIndex={0}
+          onSelectedIndexChange={() => {}}
+        />
+      </ThemeProvider>
     );
 
     const output = lastFrame();

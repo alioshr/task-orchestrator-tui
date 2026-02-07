@@ -1,18 +1,43 @@
 {
-  "name": "task-orchestrator-tui",
+  "name": "@allpepper/task-orchestrator-tui",
   "version": "1.0.0",
+  "description": "Terminal UI for task orchestration - Kanban boards, tree views, and task management",
   "type": "module",
   "bin": {
     "tasks": "src/tui/index.tsx"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/__tests__"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alioshr/task-orchestrator-tui.git"
+  },
+  "keywords": ["cli", "tui", "task-manager", "kanban", "ink", "react", "bun"],
+  "author": "alioshr",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/alioshr/task-orchestrator-tui/issues"
+  },
+  "homepage": "https://github.com/alioshr/task-orchestrator-tui#readme",
+  "engines": {
+    "bun": ">=1.0.0"
   },
   "scripts": {
     "start": "bun run src/tui/index.tsx",
     "tui": "bun run src/tui/index.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun test"
   },
   "dependencies": {
-    "task-orchestrator-bun": "file:../task-orchestrator-bun",
+    "@allpepper/task-orchestrator": "^0.1.0",
     "ink": "^6.6.0",
     "@inkjs/ui": "^2.0.0",
     "react": "^19.2.4"
@@ -21,6 +46,9 @@
     "@types/bun": "latest",
     "@types/react": "^19.2.13",
     "ink-testing-library": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "semantic-release": "^24.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1"
   }
 }

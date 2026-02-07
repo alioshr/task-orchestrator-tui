@@ -25,3 +25,8 @@ data/
 # Environment
 .env
 .env.local
+
+# SQLite WAL files
+*.db-shm
+*.db-wal
+*.db

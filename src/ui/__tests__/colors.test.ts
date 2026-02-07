@@ -62,14 +62,14 @@ describe('color utilities', () => {
       expect(getSemanticColor('success', darkTheme)).toBe('#4ade80');
       expect(getSemanticColor('warning', darkTheme)).toBe('#ffd93d');
       expect(getSemanticColor('error', darkTheme)).toBe('#ff6b6b');
-      expect(getSemanticColor('info', darkTheme)).toBe('#4da6ff');
+      expect(getSemanticColor('info', darkTheme)).toBe('#66cccc');
     });
 
     test('returns semantic colors (light)', () => {
       expect(getSemanticColor('success', lightTheme)).toBe('#16a34a');
       expect(getSemanticColor('warning', lightTheme)).toBe('#ca8a04');
       expect(getSemanticColor('error', lightTheme)).toBe('#dc2626');
-      expect(getSemanticColor('info', lightTheme)).toBe('#2563eb');
+      expect(getSemanticColor('info', lightTheme)).toBe('#0891b2');
     });
   });
 
