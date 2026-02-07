@@ -216,7 +216,6 @@ export class DirectAdapter implements DataAdapter {
   }
 
   async createTask(params: {
-    projectId?: string;
     featureId?: string;
     title: string;
     summary: string;

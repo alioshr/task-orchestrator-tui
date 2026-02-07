@@ -405,7 +405,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
                     ? currentRow.task.featureId
                     : undefined;
             adapter.createTask({
-              projectId,
               featureId,
               title: values.title ?? '',
               summary: values.summary ?? '',

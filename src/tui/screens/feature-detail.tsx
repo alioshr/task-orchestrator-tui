@@ -270,7 +270,6 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
           onCancel={() => setMode('idle')}
           onSubmit={(values) => {
             adapter.createTask({
-              projectId: feature.projectId,
               featureId: feature.id,
               title: values.title ?? '',
               summary: values.summary ?? '',

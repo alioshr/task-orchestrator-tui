@@ -111,6 +111,7 @@ export function App() {
               { key: 'f', label: 'Project Info' },
               { key: 'e', label: 'Edit Project' },
               { key: 'd', label: 'Delete Project' },
+              { key: 'r', label: 'Refresh' },
               { key: 'h', label: 'Back' },
             ]
             : []),

@@ -164,7 +164,6 @@ export interface DataAdapter {
   getTask(id: string): Promise<Result<Task>>;
 
   createTask(params: {
-    projectId?: string;
     featureId?: string;
     title: string;
     summary: string;
