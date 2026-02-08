@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.3.0...v2.0.0) (2026-02-08)
+
+
+* feat!: adapt TUI to task-orchestrator v2 pipeline model ([41b69c2](https://github.com/alioshr/task-orchestrator-tui/commit/41b69c2b4571e5dd66a0c250a7148a3fd2c1abd0))
+
+
+### BREAKING CHANGES
+
+* requires @allpepper/task-orchestrator ^2.0.0
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
 # [1.3.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.2.1...v1.3.0) (2026-02-07)
 
 
