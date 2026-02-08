@@ -5,7 +5,7 @@
     "": {
       "name": "task-orchestrator-tui",
       "dependencies": {
-        "@allpepper/task-orchestrator": "^3.0.4",
+        "@allpepper/task-orchestrator": "^3.1.1",
         "@inkjs/ui": "^2.0.0",
         "ink": "^6.6.0",
         "react": "^19.2.4",
@@ -24,7 +24,7 @@
   "packages": {
     "@alcalzone/ansi-tokenize": ["@alcalzone/ansi-tokenize@0.2.4", "", { "dependencies": { "ansi-styles": "^6.2.1", "is-fullwidth-code-point": "^5.0.0" } }, "sha512-HTgrrTgZ9Jgeo6Z3oqbQ7lifOVvRR14vaDuBGPPUxk9Thm+vObaO4QfYYYWw4Zo5CWQDBEfsinFA6Gre+AqwNQ=="],
 
-    "@allpepper/task-orchestrator": ["@allpepper/task-orchestrator@3.0.4", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.25.3", "yaml": "^2.8.2" }, "peerDependencies": { "typescript": "^5" }, "bin": { "task-orchestrator": "src/server.ts" } }, "sha512-3vopLUplcElJ/mGyeyt1n2uD2GQ8tpu7lzjEFHmgMic1llvwEBdqjF/APgDE3O9MbClHayyP2aJ9P1rry6nsrw=="],
+    "@allpepper/task-orchestrator": ["@allpepper/task-orchestrator@3.1.1", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.25.3", "yaml": "^2.8.2" }, "peerDependencies": { "typescript": "^5" }, "bin": { "task-orchestrator": "src/server.ts" } }, "sha512-GwShm4hGQ4cc1sCM0YZwwBkqFkNT/3hFogKAOmEKFRJdXyfhSDMI8KfXsuidKhAz/SdeTKEEQUR6N+cRtnNpsQ=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.0", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw=="],
 
