@@ -1,11 +1,4 @@
 #!/usr/bin/env bun
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
-// Set default DB path BEFORE dynamically importing modules that read it
-if (!process.env.DATABASE_PATH) {
-  process.env.DATABASE_PATH = join(homedir(), '.task-orchestrator', 'tasks.db');
-}
 
 async function main() {
   // Check if we're in a TTY environment
@@ -14,16 +7,14 @@ async function main() {
     process.exit(1);
   }
 
-  // Dynamic imports so DATABASE_PATH is set before db/client.ts loads
-  const [{ render }, React, { runMigrations }, { App }] = await Promise.all([
+  const [{ render }, React, { bootstrap }, { App }] = await Promise.all([
     import('ink'),
     import('react'),
-    import('@allpepper/task-orchestrator/src/db/migrate'),
+    import('@allpepper/task-orchestrator'),
     import('./app'),
   ]);
 
-  // Run database migrations first
-  await runMigrations();
+  bootstrap();
 
   // Render the TUI
   const { waitUntilExit } = render(<App />);
