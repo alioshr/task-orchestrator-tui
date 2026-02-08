@@ -45,7 +45,7 @@
     "prepublishOnly": "bun test"
   },
   "dependencies": {
-    "@allpepper/task-orchestrator": "^3.0.1",
+    "@allpepper/task-orchestrator": "^3.0.3",
     "@inkjs/ui": "^2.0.0",
     "ink": "^6.6.0",
     "react": "^19.2.4"
