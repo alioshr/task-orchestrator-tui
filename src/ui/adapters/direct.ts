@@ -3,6 +3,12 @@
  *
  * Implements DataAdapter by directly importing and calling repository functions.
  * This is used when the UI is running in the same process as the domain layer.
+ *
+ * v2 changes:
+ * - Projects are stateless (no status)
+ * - Status transitions via advance/revert/terminate
+ * - Dependencies are field-based (blockedBy/relatedTo on entities)
+ * - No separate dependencies repo
  */
 
 import type {
@@ -11,17 +17,16 @@ import type {
   SearchParams,
   FeatureSearchParams,
   TaskSearchParams,
+  WorkflowState,
+  TransitionResult,
 } from './types';
 import type {
   Task,
   Feature,
   Project,
-  TaskStatus,
-  ProjectStatus,
-  FeatureStatus,
-  Priority,
   Section,
   EntityType,
+  Priority,
 } from '@allpepper/task-orchestrator';
 import type {
   SearchResults,
@@ -30,16 +35,25 @@ import type {
   FeatureOverview,
 } from '../lib/types';
 
-// Import repos individually since barrel export is incomplete
 import * as projects from '@allpepper/task-orchestrator/src/repos/projects';
 import * as features from '@allpepper/task-orchestrator/src/repos/features';
 import * as tasks from '@allpepper/task-orchestrator/src/repos/tasks';
 import * as sections from '@allpepper/task-orchestrator/src/repos/sections';
-import * as dependencies from '@allpepper/task-orchestrator/src/repos/dependencies';
 import {
   getAllowedTransitions,
+  isValidTransition,
   type ContainerType,
 } from '@allpepper/task-orchestrator/src/services/status-validator';
+import {
+  getWorkflowState as getWorkflowStateFn,
+} from '@allpepper/task-orchestrator/src/services/workflow';
+import {
+  getNextState,
+  getPrevState,
+  getPipelinePosition,
+  EXIT_STATE,
+} from '@allpepper/task-orchestrator/src/config';
+import { queryAll, queryOne, execute, now } from '@allpepper/task-orchestrator/src/repos/base';
 
 /**
  * DirectAdapter implementation
@@ -48,14 +62,13 @@ import {
  */
 export class DirectAdapter implements DataAdapter {
   // ============================================================================
-  // Projects
+  // Projects (stateless in v2)
   // ============================================================================
 
   async getProjects(params?: SearchParams): Promise<Result<Project[]>> {
     return Promise.resolve(
       projects.searchProjects({
         query: params?.query,
-        status: params?.status,
         tags: params?.tags?.join(','),
         limit: params?.limit,
         offset: params?.offset,
@@ -74,13 +87,11 @@ export class DirectAdapter implements DataAdapter {
       return Promise.resolve(result as Result<ProjectOverview>);
     }
 
-    // Transform repo format to UI format
     const overview: ProjectOverview = {
       project: {
         id: result.data.project.id,
         name: result.data.project.name,
         summary: result.data.project.summary,
-        status: result.data.project.status,
       },
       taskCounts: result.data.taskCounts,
     };
@@ -92,7 +103,6 @@ export class DirectAdapter implements DataAdapter {
     name: string;
     summary: string;
     description?: string;
-    status?: ProjectStatus;
     tags?: string[];
   }): Promise<Result<Project>> {
     return Promise.resolve(projects.createProject(params));
@@ -104,7 +114,6 @@ export class DirectAdapter implements DataAdapter {
       name?: string;
       summary?: string;
       description?: string;
-      status?: ProjectStatus;
       tags?: string[];
       version: number;
     }
@@ -145,7 +154,6 @@ export class DirectAdapter implements DataAdapter {
       return Promise.resolve(result as Result<FeatureOverview>);
     }
 
-    // Transform repo format to UI format
     const overview: FeatureOverview = {
       feature: {
         id: result.data.feature.id,
@@ -165,7 +173,6 @@ export class DirectAdapter implements DataAdapter {
     name: string;
     summary: string;
     description?: string;
-    status?: FeatureStatus;
     priority: Priority;
     tags?: string[];
   }): Promise<Result<Feature>> {
@@ -178,7 +185,6 @@ export class DirectAdapter implements DataAdapter {
       name?: string;
       summary?: string;
       description?: string;
-      status?: FeatureStatus;
       priority?: Priority;
       projectId?: string;
       tags?: string[];
@@ -220,7 +226,6 @@ export class DirectAdapter implements DataAdapter {
     title: string;
     summary: string;
     description?: string;
-    status?: TaskStatus;
     priority: Priority;
     complexity: number;
     tags?: string[];
@@ -234,7 +239,6 @@ export class DirectAdapter implements DataAdapter {
       title?: string;
       summary?: string;
       description?: string;
-      status?: TaskStatus;
       priority?: Priority;
       complexity?: number;
       projectId?: string;
@@ -251,108 +255,198 @@ export class DirectAdapter implements DataAdapter {
     return Promise.resolve(tasks.deleteTask(id));
   }
 
-  async setTaskStatus(
+  // ============================================================================
+  // Pipeline Operations (v2)
+  // ============================================================================
+
+  async advance(
+    containerType: 'task' | 'feature',
     id: string,
-    status: TaskStatus,
     version: number
-  ): Promise<Result<Task>> {
-    return Promise.resolve(tasks.setTaskStatus(id, status, version));
-  }
+  ): Promise<Result<TransitionResult>> {
+    try {
+      const entity = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
 
-  async setProjectStatus(
-    id: string,
-    status: ProjectStatus,
-    version: number
-  ): Promise<Result<Project>> {
-    return Promise.resolve(projects.updateProject(id, { status, version }));
-  }
-
-  async setFeatureStatus(
-    id: string,
-    status: FeatureStatus,
-    version: number
-  ): Promise<Result<Feature>> {
-    return Promise.resolve(features.updateFeature(id, { status, version }));
-  }
-
-  // ============================================================================
-  // Sections
-  // ============================================================================
-
-  async getSections(
-    entityType: EntityType,
-    entityId: string
-  ): Promise<Result<Section[]>> {
-    return Promise.resolve(sections.getSections(entityId, entityType));
-  }
-
-  // ============================================================================
-  // Dependencies
-  // ============================================================================
-
-  async getDependencies(taskId: string): Promise<Result<DependencyInfo>> {
-    const result = dependencies.getDependencies(taskId, 'both');
-
-    if (!result.success) {
-      return Promise.resolve(result as Result<DependencyInfo>);
-    }
-
-    // Transform to DependencyInfo format
-    // Dependencies returned have fromTaskId and toTaskId
-    // - If fromTaskId === taskId, it's a dependency this task creates (blocks something)
-    // - If toTaskId === taskId, it's a dependency blocking this task (blocked by)
-
-    const deps = result.data;
-    const blockedByTaskIds = deps
-      .filter((d) => d.toTaskId === taskId && d.type === 'BLOCKS')
-      .map((d) => d.fromTaskId);
-    const blocksTaskIds = deps
-      .filter((d) => d.fromTaskId === taskId && d.type === 'BLOCKS')
-      .map((d) => d.toTaskId);
-
-    // Fetch the actual task objects
-    const blockedByTasks: Task[] = [];
-    for (const id of blockedByTaskIds) {
-      const taskResult = tasks.getTask(id);
-      if (taskResult.success) {
-        blockedByTasks.push(taskResult.data);
+      if (!entity.success) {
+        return { success: false, error: entity.error, code: entity.code };
       }
-    }
 
-    const blocksTasks: Task[] = [];
-    for (const id of blocksTaskIds) {
-      const taskResult = tasks.getTask(id);
-      if (taskResult.success) {
-        blocksTasks.push(taskResult.data);
+      if (entity.data.version !== version) {
+        return { success: false, error: `Version conflict: expected ${version}, found ${entity.data.version}`, code: 'CONFLICT' };
       }
+
+      const currentStatus = entity.data.status;
+      const nextState = getNextState(containerType, currentStatus);
+
+      if (!nextState) {
+        return { success: false, error: `Cannot advance: no next state from ${currentStatus}`, code: 'INVALID_OPERATION' };
+      }
+
+      // Check if blocked
+      if ('blockedBy' in entity.data && entity.data.blockedBy.length > 0) {
+        return { success: false, error: `Cannot advance: entity is blocked`, code: 'BLOCKED' };
+      }
+
+      const table = containerType === 'task' ? 'tasks' : 'features';
+      const timestamp = now();
+      execute(
+        `UPDATE ${table} SET status = ?, version = version + 1, modified_at = ? WHERE id = ?`,
+        [nextState, timestamp, id]
+      );
+
+      // Re-fetch entity
+      const updated = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
+
+      if (!updated.success) {
+        return { success: false, error: updated.error, code: updated.code };
+      }
+
+      return {
+        success: true,
+        data: {
+          entity: updated.data,
+          oldStatus: currentStatus,
+          newStatus: nextState,
+          pipelinePosition: getPipelinePosition(containerType, nextState),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
-
-    const dependencyInfo: DependencyInfo = {
-      blockedBy: blockedByTasks,
-      blocks: blocksTasks,
-    };
-
-    return Promise.resolve({ success: true, data: dependencyInfo });
   }
 
-  async getBlockedTasks(params?: {
-    projectId?: string;
-  }): Promise<Result<Task[]>> {
-    return Promise.resolve(
-      dependencies.getBlockedTasks({
-        projectId: params?.projectId,
-      })
-    );
+  async revert(
+    containerType: 'task' | 'feature',
+    id: string,
+    version: number
+  ): Promise<Result<TransitionResult>> {
+    try {
+      const entity = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
+
+      if (!entity.success) {
+        return { success: false, error: entity.error, code: entity.code };
+      }
+
+      if (entity.data.version !== version) {
+        return { success: false, error: `Version conflict: expected ${version}, found ${entity.data.version}`, code: 'CONFLICT' };
+      }
+
+      const currentStatus = entity.data.status;
+      const prevState = getPrevState(containerType, currentStatus);
+
+      if (!prevState) {
+        return { success: false, error: `Cannot revert: no previous state from ${currentStatus}`, code: 'INVALID_OPERATION' };
+      }
+
+      const table = containerType === 'task' ? 'tasks' : 'features';
+      const timestamp = now();
+      execute(
+        `UPDATE ${table} SET status = ?, version = version + 1, modified_at = ? WHERE id = ?`,
+        [prevState, timestamp, id]
+      );
+
+      const updated = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
+
+      if (!updated.success) {
+        return { success: false, error: updated.error, code: updated.code };
+      }
+
+      return {
+        success: true,
+        data: {
+          entity: updated.data,
+          oldStatus: currentStatus,
+          newStatus: prevState,
+          pipelinePosition: getPipelinePosition(containerType, prevState),
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
-  async getNextTask(params?: {
-    projectId?: string;
-  }): Promise<Result<Task | null>> {
-    return Promise.resolve(
-      dependencies.getNextTask({
-        projectId: params?.projectId,
-      })
-    );
+  async terminate(
+    containerType: 'task' | 'feature',
+    id: string,
+    version: number
+  ): Promise<Result<TransitionResult>> {
+    try {
+      const entity = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
+
+      if (!entity.success) {
+        return { success: false, error: entity.error, code: entity.code };
+      }
+
+      if (entity.data.version !== version) {
+        return { success: false, error: `Version conflict: expected ${version}, found ${entity.data.version}`, code: 'CONFLICT' };
+      }
+
+      const currentStatus = entity.data.status;
+      const table = containerType === 'task' ? 'tasks' : 'features';
+      const timestamp = now();
+
+      execute(
+        `UPDATE ${table} SET status = ?, version = version + 1, modified_at = ? WHERE id = ?`,
+        [EXIT_STATE, timestamp, id]
+      );
+
+      const updated = containerType === 'task'
+        ? tasks.getTask(id)
+        : features.getFeature(id);
+
+      if (!updated.success) {
+        return { success: false, error: updated.error, code: updated.code };
+      }
+
+      return {
+        success: true,
+        data: {
+          entity: updated.data,
+          oldStatus: currentStatus,
+          newStatus: EXIT_STATE,
+          pipelinePosition: null,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async getWorkflowState(
+    containerType: 'task' | 'feature',
+    id: string
+  ): Promise<Result<WorkflowState>> {
+    try {
+      const result = getWorkflowStateFn(containerType, id);
+      if (!result.success) {
+        return { success: false, error: result.error, code: result.code };
+      }
+      return { success: true, data: result.data as WorkflowState };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   // ============================================================================
@@ -364,7 +458,6 @@ export class DirectAdapter implements DataAdapter {
     status: string
   ): Promise<Result<string[]>> {
     try {
-      // getAllowedTransitions returns string[] directly, not a Result
       const transitions = getAllowedTransitions(
         containerType as ContainerType,
         status
@@ -379,17 +472,153 @@ export class DirectAdapter implements DataAdapter {
   }
 
   // ============================================================================
+  // Sections
+  // ============================================================================
+
+  async getSections(
+    entityType: EntityType,
+    entityId: string
+  ): Promise<Result<Section[]>> {
+    return Promise.resolve(sections.getSections(entityId, entityType));
+  }
+
+  // ============================================================================
+  // Dependencies (field-based in v2)
+  // ============================================================================
+
+  async getDependencies(taskId: string): Promise<Result<DependencyInfo>> {
+    try {
+      const taskResult = tasks.getTask(taskId);
+      if (!taskResult.success) {
+        return { success: false, error: taskResult.error, code: taskResult.code };
+      }
+
+      const task = taskResult.data;
+
+      // blockedBy: fetch each task that blocks this one
+      const blockedByTasks: Task[] = [];
+      for (const blockerId of task.blockedBy) {
+        const blockerResult = tasks.getTask(blockerId);
+        if (blockerResult.success) {
+          blockedByTasks.push(blockerResult.data);
+        }
+      }
+
+      // blocks: find all tasks that have this task in their blockedBy
+      const blocksTasks: Task[] = [];
+      const blockedRows = queryAll<{ id: string; blocked_by: string }>(
+        `SELECT id, blocked_by FROM tasks WHERE EXISTS (SELECT 1 FROM json_each(tasks.blocked_by) WHERE value = ?)`,
+        [taskId]
+      );
+      for (const row of blockedRows) {
+        const blockedTaskResult = tasks.getTask(row.id);
+        if (blockedTaskResult.success) {
+          blocksTasks.push(blockedTaskResult.data);
+        }
+      }
+
+      const dependencyInfo: DependencyInfo = {
+        blockedBy: blockedByTasks,
+        blocks: blocksTasks,
+      };
+
+      return { success: true, data: dependencyInfo };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async getBlockedTasks(params?: {
+    projectId?: string;
+  }): Promise<Result<Task[]>> {
+    try {
+      const conditions: string[] = ["blocked_by != '[]'"];
+      const values: any[] = [];
+
+      if (params?.projectId) {
+        conditions.push('project_id = ?');
+        values.push(params.projectId);
+      }
+
+      const sql = `SELECT * FROM tasks
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY
+          CASE priority WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 END ASC,
+          created_at ASC`;
+
+      const rows = queryAll<any>(sql, values);
+
+      // Convert rows to Task objects via getTask for proper mapping
+      const blockedTasks: Task[] = [];
+      for (const row of rows) {
+        const taskResult = tasks.getTask(row.id);
+        if (taskResult.success) {
+          blockedTasks.push(taskResult.data);
+        }
+      }
+
+      return { success: true, data: blockedTasks };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async getNextTask(params?: {
+    projectId?: string;
+  }): Promise<Result<Task | null>> {
+    try {
+      const conditions: string[] = ["status = 'NEW'", "blocked_by = '[]'"];
+      const values: any[] = [];
+
+      if (params?.projectId) {
+        conditions.push('project_id = ?');
+        values.push(params.projectId);
+      }
+
+      const sql = `SELECT * FROM tasks
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY
+          CASE priority WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 END ASC,
+          complexity ASC,
+          created_at ASC
+        LIMIT 1`;
+
+      const row = queryOne<any>(sql, values);
+
+      if (!row) {
+        return { success: true, data: null };
+      }
+
+      const taskResult = tasks.getTask(row.id);
+      if (!taskResult.success) {
+        return { success: true, data: null };
+      }
+
+      return { success: true, data: taskResult.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // ============================================================================
   // Search
   // ============================================================================
 
   async search(query: string): Promise<Result<SearchResults>> {
     try {
-      // Search across all entity types
       const projectsResult = projects.searchProjects({ query, limit: 10 });
       const featuresResult = features.searchFeatures({ query, limit: 10 });
       const tasksResult = tasks.searchTasks({ query, limit: 10 });
 
-      // Build search results
       const results: SearchResults = {
         projects: projectsResult.success
           ? projectsResult.data.map((p) => ({

@@ -3,15 +3,17 @@ import { test, expect, describe } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanBoard } from './kanban-board';
 import type { FeatureBoardColumn, BoardFeature } from '../../ui/lib/types';
-import { FeatureStatus, Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import { ThemeProvider } from '../../ui/context/theme-context';
 
 function makeFeature(overrides: Partial<BoardFeature> & { id: string; name: string }): BoardFeature {
   return {
     projectId: 'proj-1',
     summary: `Summary for ${overrides.name}`,
-    status: FeatureStatus.DRAFT,
+    status: 'NEW',
     priority: Priority.MEDIUM,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
     createdAt: new Date(),
     modifiedAt: new Date(),
@@ -24,9 +26,9 @@ function makeFeature(overrides: Partial<BoardFeature> & { id: string; name: stri
 describe('KanbanBoard', () => {
   const mockColumns: FeatureBoardColumn[] = [
     {
-      id: 'draft',
-      title: 'DRAFT',
-      status: FeatureStatus.DRAFT,
+      id: 'new',
+      title: 'NEW',
+      status: 'NEW',
       features: [
         makeFeature({
           id: 'feat-1',
@@ -41,14 +43,14 @@ describe('KanbanBoard', () => {
       ],
     },
     {
-      id: 'in-development',
-      title: 'IN_DEVELOPMENT',
-      status: FeatureStatus.IN_DEVELOPMENT,
+      id: 'active',
+      title: 'ACTIVE',
+      status: 'ACTIVE',
       features: [
         makeFeature({
           id: 'feat-3',
           name: 'Feature B',
-          status: FeatureStatus.IN_DEVELOPMENT,
+          status: 'ACTIVE',
           priority: Priority.MEDIUM,
           tasks: [
             {
@@ -56,11 +58,12 @@ describe('KanbanBoard', () => {
               featureId: 'feat-3',
               title: 'Task 1',
               summary: 'Task 1 summary',
-              status: TaskStatus.IN_PROGRESS,
+              status: 'ACTIVE',
               priority: Priority.HIGH,
               complexity: 5,
+              blockedBy: [],
+              relatedTo: [],
               version: 1,
-              lockStatus: LockStatus.UNLOCKED,
               createdAt: new Date(),
               modifiedAt: new Date(),
             },
@@ -69,11 +72,12 @@ describe('KanbanBoard', () => {
               featureId: 'feat-3',
               title: 'Task 2',
               summary: 'Task 2 summary',
-              status: TaskStatus.PENDING,
+              status: 'NEW',
               priority: Priority.LOW,
               complexity: 3,
+              blockedBy: [],
+              relatedTo: [],
               version: 1,
-              lockStatus: LockStatus.UNLOCKED,
               createdAt: new Date(),
               modifiedAt: new Date(),
             },
@@ -83,9 +87,9 @@ describe('KanbanBoard', () => {
       ],
     },
     {
-      id: 'deployed',
-      title: 'DEPLOYED',
-      status: FeatureStatus.DEPLOYED,
+      id: 'closed',
+      title: 'CLOSED',
+      status: 'CLOSED',
       features: [],
     },
   ];
@@ -101,7 +105,7 @@ describe('KanbanBoard', () => {
     onExpandFeature: () => {},
     onTaskChange: () => {},
     onSelectTask: () => {},
-    activeStatuses: new Set(['DRAFT', 'IN_DEVELOPMENT', 'DEPLOYED']),
+    activeStatuses: new Set(['NEW', 'ACTIVE', 'CLOSED']),
     isFilterMode: false,
     filterCursorIndex: 0,
     onToggleStatus: () => {},
@@ -118,7 +122,7 @@ describe('KanbanBoard', () => {
 
     const output = lastFrame();
     expect(output).toBeTruthy();
-    expect(output).toContain('DRAFT');
+    expect(output).toContain('NEW');
     expect(output).toContain('Feature A');
   });
 
@@ -130,9 +134,9 @@ describe('KanbanBoard', () => {
     );
 
     const output = lastFrame();
-    expect(output).toContain('DRAFT (2)');
-    expect(output).toContain('IN_DEVELOPMENT (1)');
-    expect(output).toContain('DEPLOYED (0)');
+    expect(output).toContain('NEW (2)');
+    expect(output).toContain('ACTIVE (1)');
+    expect(output).toContain('CLOSED (0)');
   });
 
   test('should show all features in columns', () => {

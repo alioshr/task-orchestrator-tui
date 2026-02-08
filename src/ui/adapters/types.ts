@@ -3,15 +3,18 @@
  *
  * Defines how the UI layer accesses data from the domain layer.
  * Implementations can be in-memory, HTTP-based, or other transport mechanisms.
+ *
+ * v2 changes:
+ * - Projects are stateless (no status field)
+ * - Status transitions via advance/revert/terminate instead of setStatus
+ * - Blocking is field-based (blockedBy/blockedReason), not a status
+ * - Dependencies are JSON fields on entities, not a separate table
  */
 
 import type {
   Task,
   Feature,
   Project,
-  TaskStatus,
-  ProjectStatus,
-  FeatureStatus,
   Section,
   EntityType,
   Priority,
@@ -36,7 +39,7 @@ export type Result<T> =
  */
 export interface SearchParams {
   query?: string;
-  status?: TaskStatus;
+  status?: string;
   tags?: string[];
   limit?: number;
   offset?: number;
@@ -58,35 +61,50 @@ export interface TaskSearchParams extends FeatureSearchParams {
 }
 
 /**
+ * Workflow state for a task or feature
+ */
+export interface WorkflowState {
+  containerType: string;
+  id: string;
+  currentStatus: string;
+  nextStatus: string | null;
+  prevStatus: string | null;
+  isTerminal: boolean;
+  isBlocked: boolean;
+  blockedBy: string[];
+  blockedReason: string | null;
+  pipelinePosition: string | null;
+  relatedEntities: string[];
+}
+
+/**
+ * Result from advance/revert operations
+ */
+export interface TransitionResult {
+  entity: Task | Feature;
+  oldStatus: string;
+  newStatus: string;
+  pipelinePosition: string | null;
+}
+
+/**
  * Data Adapter Interface
  *
  * Provides unified access to domain entities and operations.
  */
 export interface DataAdapter {
   // ============================================================================
-  // Projects
+  // Projects (stateless in v2 - no status field)
   // ============================================================================
 
-  /**
-   * Get all projects matching the search parameters
-   */
   getProjects(params?: SearchParams): Promise<Result<Project[]>>;
-
-  /**
-   * Get a single project by ID
-   */
   getProject(id: string): Promise<Result<Project>>;
-
-  /**
-   * Get project overview with aggregated statistics
-   */
   getProjectOverview(id: string): Promise<Result<ProjectOverview>>;
 
   createProject(params: {
     name: string;
     summary: string;
     description?: string;
-    status?: ProjectStatus;
     tags?: string[];
   }): Promise<Result<Project>>;
 
@@ -96,7 +114,6 @@ export interface DataAdapter {
       name?: string;
       summary?: string;
       description?: string;
-      status?: ProjectStatus;
       tags?: string[];
       version: number;
     }
@@ -108,19 +125,8 @@ export interface DataAdapter {
   // Features
   // ============================================================================
 
-  /**
-   * Get all features matching the search parameters
-   */
   getFeatures(params?: FeatureSearchParams): Promise<Result<Feature[]>>;
-
-  /**
-   * Get a single feature by ID
-   */
   getFeature(id: string): Promise<Result<Feature>>;
-
-  /**
-   * Get feature overview with aggregated statistics
-   */
   getFeatureOverview(id: string): Promise<Result<FeatureOverview>>;
 
   createFeature(params: {
@@ -128,7 +134,6 @@ export interface DataAdapter {
     name: string;
     summary: string;
     description?: string;
-    status?: FeatureStatus;
     priority: Priority;
     tags?: string[];
   }): Promise<Result<Feature>>;
@@ -139,7 +144,6 @@ export interface DataAdapter {
       name?: string;
       summary?: string;
       description?: string;
-      status?: FeatureStatus;
       priority?: Priority;
       projectId?: string;
       tags?: string[];
@@ -153,14 +157,7 @@ export interface DataAdapter {
   // Tasks
   // ============================================================================
 
-  /**
-   * Get all tasks matching the search parameters
-   */
   getTasks(params?: TaskSearchParams): Promise<Result<Task[]>>;
-
-  /**
-   * Get a single task by ID
-   */
   getTask(id: string): Promise<Result<Task>>;
 
   createTask(params: {
@@ -168,7 +165,6 @@ export interface DataAdapter {
     title: string;
     summary: string;
     description?: string;
-    status?: TaskStatus;
     priority: Priority;
     complexity: number;
     tags?: string[];
@@ -180,7 +176,6 @@ export interface DataAdapter {
       title?: string;
       summary?: string;
       description?: string;
-      status?: TaskStatus;
       priority?: Priority;
       complexity?: number;
       projectId?: string;
@@ -193,61 +188,44 @@ export interface DataAdapter {
 
   deleteTask(id: string): Promise<Result<boolean>>;
 
+  // ============================================================================
+  // Pipeline Operations (v2 - replaces setStatus)
+  // ============================================================================
+
   /**
-   * Update a task's status with optimistic concurrency control
+   * Advance a task or feature one step forward in its pipeline
    */
-  setTaskStatus(
+  advance(
+    containerType: 'task' | 'feature',
     id: string,
-    status: TaskStatus,
     version: number
-  ): Promise<Result<Task>>;
+  ): Promise<Result<TransitionResult>>;
 
-  setProjectStatus(
+  /**
+   * Revert a task or feature one step backward in its pipeline
+   */
+  revert(
+    containerType: 'task' | 'feature',
     id: string,
-    status: ProjectStatus,
     version: number
-  ): Promise<Result<Project>>;
+  ): Promise<Result<TransitionResult>>;
 
-  setFeatureStatus(
+  /**
+   * Terminate a task or feature (set to WILL_NOT_IMPLEMENT)
+   */
+  terminate(
+    containerType: 'task' | 'feature',
     id: string,
-    status: FeatureStatus,
     version: number
-  ): Promise<Result<Feature>>;
-
-  // ============================================================================
-  // Sections
-  // ============================================================================
+  ): Promise<Result<TransitionResult>>;
 
   /**
-   * Get all sections for a given entity (project, feature, or task)
+   * Get workflow state for a task or feature
    */
-  getSections(
-    entityType: EntityType,
-    entityId: string
-  ): Promise<Result<Section[]>>;
-
-  // ============================================================================
-  // Dependencies
-  // ============================================================================
-
-  /**
-   * Get dependency information for a task (blockers and blocked tasks)
-   */
-  getDependencies(taskId: string): Promise<Result<DependencyInfo>>;
-
-  /**
-   * Get all blocked tasks, optionally filtered by project
-   */
-  getBlockedTasks(params?: { projectId?: string }): Promise<Result<Task[]>>;
-
-  /**
-   * Get the next actionable task (no blockers, not completed)
-   */
-  getNextTask(params?: { projectId?: string }): Promise<Result<Task | null>>;
-
-  // ============================================================================
-  // Workflow
-  // ============================================================================
+  getWorkflowState(
+    containerType: 'task' | 'feature',
+    id: string
+  ): Promise<Result<WorkflowState>>;
 
   /**
    * Get allowed status transitions for a given container type and current status
@@ -258,11 +236,36 @@ export interface DataAdapter {
   ): Promise<Result<string[]>>;
 
   // ============================================================================
-  // Search
+  // Sections
+  // ============================================================================
+
+  getSections(
+    entityType: EntityType,
+    entityId: string
+  ): Promise<Result<Section[]>>;
+
+  // ============================================================================
+  // Dependencies (field-based in v2)
   // ============================================================================
 
   /**
-   * Full-text search across all entities
+   * Get dependency information for a task (from blockedBy/relatedTo fields)
    */
+  getDependencies(taskId: string): Promise<Result<DependencyInfo>>;
+
+  /**
+   * Get all blocked tasks (tasks with non-empty blockedBy)
+   */
+  getBlockedTasks(params?: { projectId?: string }): Promise<Result<Task[]>>;
+
+  /**
+   * Get the next actionable task (NEW, not blocked)
+   */
+  getNextTask(params?: { projectId?: string }): Promise<Result<Task | null>>;
+
+  // ============================================================================
+  // Search
+  // ============================================================================
+
   search(query: string): Promise<Result<SearchResults>>;
 }

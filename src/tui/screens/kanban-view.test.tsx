@@ -6,7 +6,7 @@ import { ThemeProvider } from '../../ui/context/theme-context';
 import { AdapterProvider } from '../../ui/context/adapter-context';
 import type { DataAdapter } from '../../ui/adapters/types';
 import type { FeatureBoardColumn } from '../../ui/lib/types';
-import { FeatureStatus, TaskStatus, Priority, LockStatus, ProjectStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 
 interface UseFeatureKanbanReturn {
   columns: FeatureBoardColumn[];
@@ -35,7 +35,6 @@ describe('KanbanView', () => {
     id: 'proj-1',
     name: 'Test Project',
     summary: 'A test project',
-    status: ProjectStatus.IN_DEVELOPMENT,
     version: 1,
     createdAt: new Date(),
     modifiedAt: new Date(),
@@ -43,17 +42,19 @@ describe('KanbanView', () => {
 
   const mockColumns: FeatureBoardColumn[] = [
     {
-      id: 'draft',
-      title: 'Draft',
-      status: 'DRAFT',
+      id: 'new',
+      title: 'New',
+      status: 'NEW',
       features: [
         {
           id: 'feature-1',
           projectId: 'proj-1',
           name: 'Feature A',
           summary: 'Summary A',
-          status: FeatureStatus.DRAFT,
+          status: 'NEW',
           priority: Priority.HIGH,
+          blockedBy: [],
+          relatedTo: [],
           version: 1,
           createdAt: new Date(),
           modifiedAt: new Date(),
@@ -64,11 +65,12 @@ describe('KanbanView', () => {
               featureId: 'feature-1',
               title: 'Task 1',
               summary: 'Task summary 1',
-              status: TaskStatus.PENDING,
+              status: 'NEW',
               priority: Priority.HIGH,
               complexity: 5,
+              blockedBy: [],
+              relatedTo: [],
               version: 1,
-              lockStatus: LockStatus.UNLOCKED,
               createdAt: new Date(),
               modifiedAt: new Date(),
             },
@@ -78,17 +80,19 @@ describe('KanbanView', () => {
       ],
     },
     {
-      id: 'in-development',
-      title: 'In Development',
-      status: 'IN_DEVELOPMENT',
+      id: 'active',
+      title: 'Active',
+      status: 'ACTIVE',
       features: [
         {
           id: 'feature-2',
           projectId: 'proj-1',
           name: 'Feature B',
           summary: 'Summary B',
-          status: FeatureStatus.IN_DEVELOPMENT,
+          status: 'ACTIVE',
           priority: Priority.MEDIUM,
+          blockedBy: [],
+          relatedTo: [],
           version: 1,
           createdAt: new Date(),
           modifiedAt: new Date(),
@@ -98,9 +102,9 @@ describe('KanbanView', () => {
       ],
     },
     {
-      id: 'deployed',
-      title: 'Deployed',
-      status: 'DEPLOYED',
+      id: 'closed',
+      title: 'Closed',
+      status: 'CLOSED',
       features: [],
     },
   ];
@@ -123,7 +127,7 @@ describe('KanbanView', () => {
     onExpandedFeatureIdChange = mock(() => {});
     onSelectedTaskIndexChange = mock(() => {});
     onActiveStatusesChange = mock(() => {});
-    activeStatuses = new Set(['DRAFT', 'IN_DEVELOPMENT', 'DEPLOYED']);
+    activeStatuses = new Set(['NEW', 'ACTIVE', 'CLOSED']);
 
     mockAdapter = {
       getProject: mock(async () => ({ success: true, data: mockProject })),
@@ -143,14 +147,15 @@ describe('KanbanView', () => {
       createTask: mock(async () => ({ success: true, data: {} as any })),
       updateTask: mock(async () => ({ success: true, data: {} as any })),
       deleteTask: mock(async () => ({ success: true, data: true })),
-      setTaskStatus: mock(async () => ({ success: true, data: {} as any })),
-      setProjectStatus: mock(async () => ({ success: true, data: {} as any })),
-      setFeatureStatus: mock(async () => ({ success: true, data: {} as any })),
+      advance: mock(async () => ({ success: true, data: {} as any })),
+      revert: mock(async () => ({ success: true, data: {} as any })),
+      terminate: mock(async () => ({ success: true, data: {} as any })),
+      getWorkflowState: mock(async () => ({ success: true, data: {} as any })),
+      getAllowedTransitions: mock(async () => ({ success: true, data: [] })),
       getSections: mock(async () => ({ success: true, data: [] })),
       getDependencies: mock(async () => ({ success: true, data: { blockedBy: [], blocks: [] } })),
       getBlockedTasks: mock(async () => ({ success: true, data: [] })),
       getNextTask: mock(async () => ({ success: true, data: null })),
-      getAllowedTransitions: mock(async () => ({ success: true, data: [] })),
       search: mock(async () => ({ success: true, data: { projects: [], features: [], tasks: [] } })),
     } as DataAdapter;
 
@@ -245,9 +250,9 @@ describe('KanbanView', () => {
     const { lastFrame } = renderWithProviders('proj-1');
     const output = lastFrame();
 
-    expect(output).toContain('Draft');
-    expect(output).toContain('In Development');
-    expect(output).toContain('Deployed');
+    expect(output).toContain('New');
+    expect(output).toContain('Active');
+    expect(output).toContain('Closed');
     expect(output).toContain('Feature A');
     expect(output).toContain('Feature B');
   });

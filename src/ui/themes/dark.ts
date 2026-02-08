@@ -10,36 +10,18 @@ export const darkTheme: Theme = {
     muted: '#6b6b8d',
     border: '#3d3d5c',
 
-    // Status colors (unique keys only)
+    // Status colors (v2 pipeline states)
     status: {
-      // Project/Feature/Task shared
-      PLANNING: '#a0a0c0',
-      IN_DEVELOPMENT: '#4da6ff',
-      ON_HOLD: '#cc9966',
-      CANCELLED: '#808080',
-      COMPLETED: '#4ade80',
-      ARCHIVED: '#555555',
-
-      // Feature/Task shared
-      TESTING: '#66cccc',
-      BLOCKED: '#ff6666',
-      DEPLOYED: '#34d399',
-
-      // Feature only
-      DRAFT: '#6b6b8d',
-      VALIDATING: '#66cc99',
-      PENDING_REVIEW: '#b366ff',
-
-      // Task only
-      BACKLOG: '#6b6b8d',
-      PENDING: '#a0a0c0',
-      IN_PROGRESS: '#4da6ff',
-      IN_REVIEW: '#b366ff',
-      CHANGES_REQUESTED: '#ff9966',
-      READY_FOR_QA: '#66cc99',
-      INVESTIGATING: '#ffcc66',
-      DEFERRED: '#999999',
+      NEW: '#a0a0c0',
+      ACTIVE: '#4da6ff',
+      TO_BE_TESTED: '#66cccc',
+      READY_TO_PROD: '#66cc99',
+      CLOSED: '#4ade80',
+      WILL_NOT_IMPLEMENT: '#808080',
     },
+
+    // Blocked overlay color
+    blocked: '#ff6666',
 
     // Priority colors
     priority: {

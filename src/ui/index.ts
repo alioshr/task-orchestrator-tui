@@ -8,6 +8,7 @@
 export { darkTheme } from './themes/dark';
 export { lightTheme } from './themes/light';
 export type { Theme, TaskCounts, StatusKey } from './themes/types';
+export type { WorkflowState, TransitionResult } from './adapters/types';
 
 // Lib - Types
 export {

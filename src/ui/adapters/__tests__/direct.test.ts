@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'bun:test'
 import { db } from '@allpepper/task-orchestrator';
 import { runMigrations } from '@allpepper/task-orchestrator/src/db/migrate';
 import { DirectAdapter } from '../direct';
-import { ProjectStatus, FeatureStatus, TaskStatus, Priority } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import * as projects from '@allpepper/task-orchestrator/src/repos/projects';
 import * as features from '@allpepper/task-orchestrator/src/repos/features';
 import * as tasks from '@allpepper/task-orchestrator/src/repos/tasks';
@@ -15,7 +15,6 @@ beforeAll(() => {
 // Setup test database
 beforeEach(() => {
   // Clean up tables before each test
-  db.run('DELETE FROM dependencies');
   db.run('DELETE FROM entity_tags');
   db.run('DELETE FROM sections');
   db.run('DELETE FROM tasks');
@@ -25,7 +24,6 @@ beforeEach(() => {
 
 afterAll(() => {
   // Final cleanup
-  db.run('DELETE FROM dependencies');
   db.run('DELETE FROM entity_tags');
   db.run('DELETE FROM sections');
   db.run('DELETE FROM tasks');
@@ -207,26 +205,27 @@ describe('DirectAdapter', () => {
       }
     });
 
-    it('should set task status', async () => {
+    it('should advance task status', async () => {
       const createResult = tasks.createTask({
         title: 'Test Task',
         summary: 'A test task',
         priority: Priority.MEDIUM,
         complexity: 5,
-        status: TaskStatus.PENDING,
       });
       expect(createResult.success).toBe(true);
 
       if (createResult.success) {
-        const result = await adapter.setTaskStatus(
+        // Task starts at NEW, advance should move to ACTIVE
+        const result = await adapter.advance(
+          'task',
           createResult.data.id,
-          TaskStatus.IN_PROGRESS,
           createResult.data.version
         );
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.status).toBe(TaskStatus.IN_PROGRESS);
-          expect(result.data.version).toBe(createResult.data.version + 1);
+          expect(result.data.entity.status).toBe('ACTIVE');
+          expect(result.data.oldStatus).toBe('NEW');
+          expect(result.data.newStatus).toBe('ACTIVE');
         }
       }
     });
@@ -262,11 +261,32 @@ describe('DirectAdapter', () => {
 
   describe('Workflow', () => {
     it('should get allowed transitions', async () => {
-      const result = await adapter.getAllowedTransitions('task', TaskStatus.PENDING);
+      const result = await adapter.getAllowedTransitions('task', 'NEW');
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data).toContain(TaskStatus.IN_PROGRESS);
-        expect(result.data).toContain(TaskStatus.BLOCKED);
+        // From NEW, the next state is ACTIVE
+        expect(result.data).toContain('ACTIVE');
+      }
+    });
+
+    it('should get workflow state for a task', async () => {
+      const createResult = tasks.createTask({
+        title: 'Workflow Test Task',
+        summary: 'Testing workflow state',
+        priority: Priority.MEDIUM,
+        complexity: 3,
+      });
+      expect(createResult.success).toBe(true);
+
+      if (createResult.success) {
+        const result = await adapter.getWorkflowState('task', createResult.data.id);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.currentStatus).toBe('NEW');
+          expect(result.data.nextStatus).toBe('ACTIVE');
+          expect(result.data.prevStatus).toBeNull();
+          expect(result.data.isTerminal).toBe(false);
+        }
       }
     });
   });

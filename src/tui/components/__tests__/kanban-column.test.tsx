@@ -3,7 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanColumn } from '../kanban-column';
 import { ThemeProvider } from '../../../ui/context/theme-context';
-import { FeatureStatus, Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import type { Task } from '@allpepper/task-orchestrator';
 import type { FeatureBoardColumn, BoardFeature } from '../../../ui/lib/types';
 
@@ -15,14 +15,16 @@ function renderWithTheme(element: React.ReactElement) {
 // Mock feature factory
 function createMockFeature(overrides: Partial<BoardFeature> = {}): BoardFeature {
   const tasks = overrides.tasks ?? [];
-  const completed = tasks.filter(t => t.status === TaskStatus.COMPLETED).length;
+  const completed = tasks.filter(t => t.status === 'CLOSED').length;
 
   return {
     id: `feature-${Math.random()}`,
     name: 'Test Feature',
     summary: 'Test summary',
-    status: FeatureStatus.IN_DEVELOPMENT,
+    status: 'ACTIVE',
     priority: Priority.MEDIUM,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
     createdAt: new Date('2024-01-01'),
     modifiedAt: new Date('2024-01-01'),
@@ -40,11 +42,12 @@ function createMockTask(overrides: Partial<Task> = {}): Task {
     title: 'Test Task',
     summary: 'Test summary',
     description: 'Test description',
-    status: TaskStatus.IN_PROGRESS,
+    status: 'ACTIVE',
     priority: Priority.MEDIUM,
     complexity: 3,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date('2024-01-01'),
     modifiedAt: new Date('2024-01-01'),
     tags: [],
@@ -56,8 +59,8 @@ function createMockTask(overrides: Partial<Task> = {}): Task {
 function createMockColumn(overrides: Partial<FeatureBoardColumn> = {}): FeatureBoardColumn {
   return {
     id: 'column-1',
-    title: 'In Development',
-    status: 'IN_DEVELOPMENT',
+    title: 'Active',
+    status: 'ACTIVE',
     features: [],
     ...overrides,
   };
@@ -248,7 +251,7 @@ describe('KanbanColumn', () => {
   });
 
   test('should render column with different statuses', () => {
-    const statuses = ['DRAFT', 'IN_DEVELOPMENT', 'COMPLETED'];
+    const statuses = ['NEW', 'ACTIVE', 'CLOSED'];
 
     statuses.forEach(status => {
       const column = createMockColumn({

@@ -1,33 +1,18 @@
 import type { Priority } from '@allpepper/task-orchestrator';
 
 /**
- * All possible status values across Project, Feature, and Task
- * Using string literal union to avoid duplicate key issues
+ * v2 pipeline status keys
+ * Task: NEW, ACTIVE, TO_BE_TESTED, READY_TO_PROD, CLOSED, WILL_NOT_IMPLEMENT
+ * Feature: NEW, ACTIVE, READY_TO_PROD, CLOSED, WILL_NOT_IMPLEMENT
+ * Projects: stateless (no status)
  */
 export type StatusKey =
-  // Project statuses
-  | 'PLANNING'
-  | 'IN_DEVELOPMENT'
-  | 'ON_HOLD'
-  | 'CANCELLED'
-  | 'COMPLETED'
-  | 'ARCHIVED'
-  // Feature-only statuses
-  | 'DRAFT'
-  | 'TESTING'
-  | 'VALIDATING'
-  | 'PENDING_REVIEW'
-  | 'BLOCKED'
-  | 'DEPLOYED'
-  // Task-only statuses
-  | 'BACKLOG'
-  | 'PENDING'
-  | 'IN_PROGRESS'
-  | 'IN_REVIEW'
-  | 'CHANGES_REQUESTED'
-  | 'READY_FOR_QA'
-  | 'INVESTIGATING'
-  | 'DEFERRED';
+  | 'NEW'
+  | 'ACTIVE'
+  | 'TO_BE_TESTED'
+  | 'READY_TO_PROD'
+  | 'CLOSED'
+  | 'WILL_NOT_IMPLEMENT';
 
 /**
  * Theme interface for the Task Orchestrator UI
@@ -42,8 +27,11 @@ export interface Theme {
     muted: string;
     border: string;
 
-    // Status colors - maps all unique status values
+    // Status colors - maps v2 pipeline states
     status: Record<StatusKey, string>;
+
+    // Blocked overlay color (for field-based blocking indicator)
+    blocked: string;
 
     // Priority colors
     priority: Record<Priority, string>;

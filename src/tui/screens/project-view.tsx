@@ -4,13 +4,14 @@ import { useProjectTree } from '../../ui/hooks/use-data';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { useTheme } from '../../ui/context/theme-context';
 import { TreeView, type TreeRow } from '../components/tree-view';
-import { StatusBadge } from '../components/status-badge';
 import { ViewModeChips } from '../components/view-mode-chips';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
-import type { FeatureStatus, Priority } from '@allpepper/task-orchestrator';
+import { StatusActions } from '../components/status-actions';
+import type { Priority } from '@allpepper/task-orchestrator';
+import type { WorkflowState } from '../../ui/adapters/types';
 
 interface ProjectViewProps {
   projectId: string;
@@ -34,8 +35,8 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
   const { project, features, unassignedTasks, taskCounts, statusGroupedRows, featureStatusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
   const [mode, setMode] = useState<'idle' | 'create-feature' | 'edit-feature' | 'delete-feature' | 'create-task' | 'edit-task' | 'delete-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [featureTransitions, setFeatureTransitions] = useState<string[]>([]);
-  const [featureTransitionIndex, setFeatureTransitionIndex] = useState(0);
+  const [featureWorkflowState, setFeatureWorkflowState] = useState<WorkflowState | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Build flat list of rows - switch based on view mode
   const rows = useMemo(() => {
@@ -83,6 +84,20 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     return result;
   }, [viewMode, statusGroupedRows, featureStatusGroupedRows, features, unassignedTasks, expandedFeatures]);
 
+  // Helper: get feature from current row
+  const getFeatureFromRow = (row: TreeRow | undefined) => {
+    if (!row) return undefined;
+    const featureId =
+      row.type === 'feature'
+        ? row.feature.id
+        : row.type === 'group'
+          ? row.featureId
+          : row.type === 'task'
+            ? row.task.featureId
+            : undefined;
+    return featureId ? features.find((f) => f.id === featureId) : undefined;
+  };
+
   // Handle keyboard
   useInput((input, key) => {
     if (mode !== 'idle') return;
@@ -92,7 +107,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 'r') {
       refresh();
     }
-    // Cycle view mode with 'v': features → status → feature-status → features
     if (input === 'v') {
       const next = viewMode === 'features' ? 'status' : viewMode === 'status' ? 'feature-status' : 'features';
       onViewModeChange(next);
@@ -106,7 +120,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 't') {
       setMode('create-task');
     }
-    // Navigate to feature detail screen
     if (input === 'f') {
       const currentRow = rows[selectedIndex];
       const featureId =
@@ -137,21 +150,11 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
       }
     }
     if (input === 's') {
-      const currentRow = rows[selectedIndex];
-      const featureId =
-        currentRow?.type === 'feature'
-          ? currentRow.feature.id
-          : currentRow?.type === 'group'
-            ? currentRow.featureId
-            : currentRow?.type === 'task'
-              ? currentRow.task.featureId
-              : undefined;
-      const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+      const feature = getFeatureFromRow(rows[selectedIndex]);
       if (feature) {
-        adapter.getAllowedTransitions('FEATURE', feature.status).then((result) => {
+        adapter.getWorkflowState('feature', feature.id).then((result) => {
           if (result.success) {
-            setFeatureTransitions(result.data);
-            setFeatureTransitionIndex(0);
+            setFeatureWorkflowState(result.data);
             setMode('feature-status');
           }
         });
@@ -159,48 +162,55 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     }
   });
 
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (mode !== 'feature-status') return;
-    if (input === 'j' || key.downArrow) {
-      setFeatureTransitionIndex((prev) => (prev + 1) % Math.max(1, featureTransitions.length));
-      return;
-    }
-    if (input === 'k' || key.upArrow) {
-      setFeatureTransitionIndex((prev) => (prev - 1 + Math.max(1, featureTransitions.length)) % Math.max(1, featureTransitions.length));
-      return;
-    }
     if (key.escape) {
       setMode('idle');
-      return;
-    }
-    if (key.return) {
-      const currentRow = rows[selectedIndex];
-      const featureId =
-        currentRow?.type === 'feature'
-          ? currentRow.feature.id
-          : currentRow?.type === 'group'
-            ? currentRow.featureId
-            : currentRow?.type === 'task'
-              ? currentRow.task.featureId
-              : undefined;
-      const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
-      const nextStatus = featureTransitions[featureTransitionIndex] as FeatureStatus | undefined;
-      if (feature && nextStatus) {
-        adapter.setFeatureStatus(feature.id, nextStatus, feature.version).then((result) => {
-          if (!result.success) setLocalError(result.error);
-          refresh();
-          setMode('idle');
-        });
-      }
     }
   }, { isActive: mode === 'feature-status' });
+
+  // Pipeline operations for feature status
+  const handleFeatureAdvance = async () => {
+    const feature = getFeatureFromRow(rows[selectedIndex]);
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.advance('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
+
+  const handleFeatureRevert = async () => {
+    const feature = getFeatureFromRow(rows[selectedIndex]);
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.revert('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
+
+  const handleFeatureTerminate = async () => {
+    const feature = getFeatureFromRow(rows[selectedIndex]);
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.terminate('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
 
   // Toggle feature expansion
   const handleToggleFeature = (featureId: string) => {
     const next = new Set(expandedFeatures);
     if (next.has(featureId)) {
       next.delete(featureId);
-      // Clamp selectedIndex if it was on a child task
       const featureIndex = rows.findIndex(r => r.type === 'feature' && r.feature.id === featureId);
       if (featureIndex >= 0 && selectedIndex > featureIndex) {
         const nextFeatureIndex = rows.findIndex((r, i) => i > featureIndex && r.type === 'feature');
@@ -252,11 +262,9 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Project Header */}
+      {/* Project Header (no status - projects are stateless in v2) */}
       <Box marginBottom={1}>
         <Text bold>{project.name}</Text>
-        <Text> </Text>
-        <StatusBadge status={project.status} />
         <Text dimColor> — {taskCounts.completed}/{taskCounts.total} tasks completed</Text>
       </Box>
 
@@ -318,14 +326,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
 
       {mode === 'edit-feature' ? (
         (() => {
-          const currentRow = rows[selectedIndex];
-          const featureId =
-            currentRow?.type === 'feature'
-              ? currentRow.feature.id
-              : currentRow?.type === 'group'
-                ? currentRow.featureId
-                : undefined;
-          const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+          const feature = getFeatureFromRow(rows[selectedIndex]);
           if (!feature) return null;
           return (
             <FormDialog
@@ -357,14 +358,7 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
 
       {mode === 'delete-feature' ? (
         (() => {
-          const currentRow = rows[selectedIndex];
-          const featureId =
-            currentRow?.type === 'feature'
-              ? currentRow.feature.id
-              : currentRow?.type === 'group'
-                ? currentRow.featureId
-                : undefined;
-          const feature = featureId ? features.find((f) => f.id === featureId) : undefined;
+          const feature = getFeatureFromRow(rows[selectedIndex]);
           if (!feature) return null;
           return (
             <ConfirmDialog
@@ -479,17 +473,19 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
 
       {mode === 'feature-status' ? (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} marginTop={1}>
-          <Text bold>Set Feature Status</Text>
-          {featureTransitions.length === 0 ? (
-            <Text dimColor>No transitions available</Text>
-          ) : (
-            featureTransitions.map((status, idx) => (
-              <Text key={status} inverse={idx === featureTransitionIndex}>
-                {idx === featureTransitionIndex ? '>' : ' '} {status}
-              </Text>
-            ))
-          )}
-          <Text dimColor>Enter apply • Esc cancel</Text>
+          <StatusActions
+            currentStatus={featureWorkflowState?.currentStatus ?? ''}
+            nextStatus={featureWorkflowState?.nextStatus ?? null}
+            prevStatus={featureWorkflowState?.prevStatus ?? null}
+            isBlocked={featureWorkflowState?.isBlocked ?? false}
+            isTerminal={featureWorkflowState?.isTerminal ?? false}
+            isActive={true}
+            loading={isUpdatingStatus}
+            onAdvance={handleFeatureAdvance}
+            onRevert={handleFeatureRevert}
+            onTerminate={handleFeatureTerminate}
+          />
+          <Text dimColor>Esc: cancel</Text>
         </Box>
       ) : null}
     </Box>

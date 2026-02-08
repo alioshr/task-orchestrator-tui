@@ -1,17 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useProjects } from '../../ui/hooks/use-data';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { useTheme } from '../../ui/context/theme-context';
 import { EntityTable } from '../components/entity-table';
-import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
 import type { ProjectWithCounts } from '../../ui/hooks/use-data';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
 import { FormDialog } from '../components/form-dialog';
-import type { ProjectStatus } from '@allpepper/task-orchestrator';
 
 interface DashboardProps {
   selectedIndex: number;
@@ -25,24 +23,14 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
   const { adapter } = useAdapter();
   const { theme } = useTheme();
   const { projects, loading, error, refresh } = useProjects();
-  const [mode, setMode] = useState<'idle' | 'create' | 'edit' | 'delete' | 'status'>('idle');
+  const [mode, setMode] = useState<'idle' | 'create' | 'edit' | 'delete'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
-  const [statusIndex, setStatusIndex] = useState(0);
 
   const columns = [
     {
       key: 'name',
       label: 'Name',
       width: 45,
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      width: 18,
-      render: (_value: unknown, row: ProjectWithCounts, context?: { isSelected: boolean }) => (
-        <StatusBadge status={row.status} isSelected={context?.isSelected} />
-      ),
     },
     {
       key: 'features',
@@ -71,37 +59,7 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
   const effectiveSelectedIndex = projects.length > 0 ? clampedSelectedIndex : 0;
   const selectedProject = projects[effectiveSelectedIndex];
 
-  const statusTargets = useMemo(() => allowedTransitions as ProjectStatus[], [allowedTransitions]);
-
   useInput((input, key) => {
-    // Handle status mode
-    if (mode === 'status') {
-      if (input === 'j' || key.downArrow) {
-        setStatusIndex((prev) => (prev + 1) % Math.max(1, statusTargets.length));
-        return;
-      }
-      if (input === 'k' || key.upArrow) {
-        setStatusIndex((prev) => (prev - 1 + Math.max(1, statusTargets.length)) % Math.max(1, statusTargets.length));
-        return;
-      }
-      if (key.escape) {
-        setMode('idle');
-        return;
-      }
-      if (key.return && selectedProject && statusTargets[statusIndex]) {
-        const next = statusTargets[statusIndex];
-        adapter.setProjectStatus(selectedProject.id, next, selectedProject.version).then((result) => {
-          if (!result.success) {
-            setLocalError(result.error);
-          }
-          refresh();
-          setMode('idle');
-        });
-      }
-      return;
-    }
-
-    // Handle idle mode
     if (mode === 'idle') {
       if (input === 'n') {
         setMode('create');
@@ -117,15 +75,6 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
       }
       if (input === 'd' && selectedProject) {
         setMode('delete');
-        return;
-      }
-      if (input === 's' && selectedProject) {
-        adapter.getAllowedTransitions('PROJECT', selectedProject.status).then((result) => {
-          if (result.success) {
-            setAllowedTransitions(result.data);
-            setMode('status');
-          }
-        });
         return;
       }
       if (input === 'r') {
@@ -232,22 +181,6 @@ export function Dashboard({ selectedIndex, onSelectedIndexChange, onSelectProjec
             });
           }}
         />
-      ) : null}
-
-      {mode === 'status' && selectedProject ? (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} marginTop={1}>
-          <Text bold>Set Project Status</Text>
-          {statusTargets.length === 0 ? (
-            <Text dimColor>No transitions available</Text>
-          ) : (
-            statusTargets.map((status, idx) => (
-              <Text key={status} inverse={idx === statusIndex}>
-                {idx === statusIndex ? '>' : ' '} {status}
-              </Text>
-            ))
-          )}
-          <Text dimColor>Enter apply • Esc cancel</Text>
-        </Box>
       ) : null}
 
     </Box>

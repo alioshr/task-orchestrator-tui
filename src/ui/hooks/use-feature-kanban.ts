@@ -1,23 +1,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Feature, FeatureStatus } from '@allpepper/task-orchestrator';
+import type { Feature, Task } from '@allpepper/task-orchestrator';
 import type { BoardFeature, FeatureBoardColumn } from '../lib/types';
+import { isCompletedStatus } from '../lib/colors';
 
 /**
- * Feature-status columns for the feature-based Kanban board
+ * v2 Feature-status columns for the feature-based Kanban board
+ * Features: NEW → ACTIVE → READY_TO_PROD → CLOSED (+ WILL_NOT_IMPLEMENT)
  */
 export const FEATURE_KANBAN_STATUSES = [
-  { id: 'draft', title: 'Draft', status: 'DRAFT' },
-  { id: 'planning', title: 'Planning', status: 'PLANNING' },
-  { id: 'in-development', title: 'In Development', status: 'IN_DEVELOPMENT' },
-  { id: 'testing', title: 'Testing', status: 'TESTING' },
-  { id: 'validating', title: 'Validating', status: 'VALIDATING' },
-  { id: 'pending-review', title: 'Pending Review', status: 'PENDING_REVIEW' },
-  { id: 'blocked', title: 'Blocked', status: 'BLOCKED' },
-  { id: 'on-hold', title: 'On Hold', status: 'ON_HOLD' },
-  { id: 'deployed', title: 'Deployed', status: 'DEPLOYED' },
-  { id: 'completed', title: 'Completed', status: 'COMPLETED' },
-  { id: 'archived', title: 'Archived', status: 'ARCHIVED' },
+  { id: 'new', title: 'New', status: 'NEW' },
+  { id: 'active', title: 'Active', status: 'ACTIVE' },
+  { id: 'ready-to-prod', title: 'Ready to Prod', status: 'READY_TO_PROD' },
+  { id: 'closed', title: 'Closed', status: 'CLOSED' },
+  { id: 'will-not-implement', title: 'Will Not Implement', status: 'WILL_NOT_IMPLEMENT' },
 ] as const;
 
 interface UseFeatureKanbanReturn {
@@ -30,14 +26,12 @@ interface UseFeatureKanbanReturn {
 
 /**
  * Hook for managing the feature-based Kanban board.
- *
- * Fetches features and tasks for a project, groups features by their status
- * into columns, and nests tasks within each feature card.
+ * In v2, features move through the pipeline via advance/revert.
  */
 export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
   const { adapter } = useAdapter();
   const [features, setFeatures] = useState<Feature[]>([]);
-  const [tasksByFeature, setTasksByFeature] = useState<Map<string, import('@allpepper/task-orchestrator/src/domain/types').Task[]>>(new Map());
+  const [tasksByFeature, setTasksByFeature] = useState<Map<string, Task[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -69,8 +63,7 @@ export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
 
     setFeatures(featuresResult.data);
 
-    // Group tasks by featureId
-    const grouped = new Map<string, import('@allpepper/task-orchestrator/src/domain/types').Task[]>();
+    const grouped = new Map<string, Task[]>();
     for (const task of tasksResult.data) {
       if (task.featureId) {
         const list = grouped.get(task.featureId) || [];
@@ -97,7 +90,7 @@ export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
             tasks,
             taskCounts: {
               total: tasks.length,
-              completed: tasks.filter((t) => t.status === 'COMPLETED' || t.status === 'DEPLOYED').length,
+              completed: tasks.filter((t) => isCompletedStatus(t.status)).length,
             },
           };
         });
@@ -113,7 +106,6 @@ export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
 
   const moveFeature = useCallback(
     async (featureId: string, newStatus: string): Promise<boolean> => {
-      // Find feature in current data
       const feature = features.find((f) => f.id === featureId);
       if (!feature) {
         refresh();
@@ -121,20 +113,43 @@ export function useFeatureKanban(projectId: string): UseFeatureKanbanReturn {
       }
 
       try {
-        const result = await adapter.setFeatureStatus(
-          featureId,
-          newStatus as FeatureStatus,
-          feature.version
-        );
+        // Determine direction based on pipeline position
+        const currentIdx = FEATURE_KANBAN_STATUSES.findIndex(s => s.status === feature.status);
+        const targetIdx = FEATURE_KANBAN_STATUSES.findIndex(s => s.status === newStatus);
 
-        if (result.success) {
-          refresh();
-          return true;
-        } else {
+        if (currentIdx === -1 || targetIdx === -1) {
           refresh();
           return false;
         }
+
+        // Handle terminate (WILL_NOT_IMPLEMENT)
+        if (newStatus === 'WILL_NOT_IMPLEMENT') {
+          const result = await adapter.terminate('feature', featureId, feature.version);
+          refresh();
+          return result.success;
+        }
+
+        // Step through the pipeline
+        let currentVersion = feature.version;
+        const direction = targetIdx > currentIdx ? 'advance' : 'revert';
+        const steps = Math.abs(targetIdx - currentIdx);
+
+        for (let i = 0; i < steps; i++) {
+          const result = direction === 'advance'
+            ? await adapter.advance('feature', featureId, currentVersion)
+            : await adapter.revert('feature', featureId, currentVersion);
+
+          if (!result.success) {
+            refresh();
+            return false;
+          }
+          currentVersion = result.data.entity.version;
+        }
+
+        refresh();
+        return true;
       } catch (_err) {
+        refresh();
         return false;
       }
     },

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAdapter } from '../context/adapter-context';
-import type { Project, Task, Feature, Section, EntityType, TaskStatus, Priority, FeatureStatus } from '@allpepper/task-orchestrator';
+import type { Project, Task, Feature, Section, EntityType, Priority } from '@allpepper/task-orchestrator';
 import type { FeatureWithTasks, ProjectOverview, SearchResults, DependencyInfo, BoardCard, BoardTask } from '../lib/types';
 import type { TreeRow } from '../../tui/components/tree-view';
+import { isCompletedStatus } from '../lib/colors';
 
 /**
  * Task counts structure
@@ -18,7 +19,7 @@ export interface TaskCounts {
 export function calculateTaskCounts(tasks: Task[]): TaskCounts {
   return {
     total: tasks.length,
-    completed: tasks.filter(t => t.status === 'COMPLETED').length,
+    completed: tasks.filter(t => isCompletedStatus(t.status)).length,
   };
 }
 
@@ -32,7 +33,7 @@ export function calculateTaskCountsByProject(tasks: Task[]): Map<string, TaskCou
     if (task.projectId) {
       const counts = countsByProject.get(task.projectId) || { total: 0, completed: 0 };
       counts.total++;
-      if (task.status === 'COMPLETED') {
+      if (isCompletedStatus(task.status)) {
         counts.completed++;
       }
       countsByProject.set(task.projectId, counts);
@@ -51,11 +52,6 @@ export interface FeatureCounts {
 }
 
 /**
- * Terminal feature statuses considered "completed"
- */
-const COMPLETED_FEATURE_STATUSES = ['COMPLETED', 'DEPLOYED'];
-
-/**
  * Group features by project ID and calculate counts for each
  */
 export function calculateFeatureCountsByProject(featureList: Feature[]): Map<string, FeatureCounts> {
@@ -65,7 +61,7 @@ export function calculateFeatureCountsByProject(featureList: Feature[]): Map<str
     if (feature.projectId) {
       const counts = countsByProject.get(feature.projectId) || { total: 0, completed: 0 };
       counts.total++;
-      if (COMPLETED_FEATURE_STATUSES.includes(feature.status)) {
+      if (isCompletedStatus(feature.status)) {
         counts.completed++;
       }
       countsByProject.set(feature.projectId, counts);
@@ -85,14 +81,6 @@ export interface ProjectWithCounts extends Project {
 
 /**
  * Hook for fetching and managing the list of projects for the dashboard.
- * Includes task counts for each project.
- *
- * @returns Project list state with loading/error states and refresh function
- *
- * @example
- * ```tsx
- * const { projects, loading, error, refresh } = useProjects();
- * ```
  */
 export function useProjects() {
   const { adapter } = useAdapter();
@@ -104,11 +92,10 @@ export function useProjects() {
     setLoading(true);
     setError(null);
 
-    // Fetch projects, tasks, and features in parallel
     const [projectsResult, tasksResult, featuresResult] = await Promise.all([
       adapter.getProjects(),
-      adapter.getTasks({ limit: 1000 }), // Get all tasks to count by project
-      adapter.getFeatures({ limit: 1000 }), // Get all features to count by project
+      adapter.getTasks({ limit: 1000 }),
+      adapter.getFeatures({ limit: 1000 }),
     ]);
 
     if (!projectsResult.success) {
@@ -117,17 +104,14 @@ export function useProjects() {
       return;
     }
 
-    // Build task counts by project using shared utility
     const taskCountsByProject = tasksResult.success
       ? calculateTaskCountsByProject(tasksResult.data)
       : new Map<string, TaskCounts>();
 
-    // Build feature counts by project using shared utility
     const featureCountsByProject = featuresResult.success
       ? calculateFeatureCountsByProject(featuresResult.data)
       : new Map<string, FeatureCounts>();
 
-    // Merge task and feature counts into projects
     const projectsWithCounts: ProjectWithCounts[] = projectsResult.data.map(project => ({
       ...project,
       taskCounts: taskCountsByProject.get(project.id) || { total: 0, completed: 0 },
@@ -152,14 +136,6 @@ export function useProjects() {
 
 /**
  * Hook for fetching a single project with its overview statistics.
- *
- * @param id - The project ID
- * @returns Project and overview state with loading/error states and refresh function
- *
- * @example
- * ```tsx
- * const { project, overview, loading, error, refresh } = useProjectOverview('proj-123');
- * ```
  */
 export function useProjectOverview(id: string) {
   const { adapter } = useAdapter();
@@ -186,7 +162,6 @@ export function useProjectOverview(id: string) {
     if (overviewResult.success) {
       setOverview(overviewResult.data);
     } else if (!error) {
-      // Only set error if project fetch didn't already fail
       setError(overviewResult.error);
     }
 
@@ -207,16 +182,16 @@ export function useProjectOverview(id: string) {
 }
 
 /**
- * Status order for grouping tasks - active statuses first, then terminal statuses
+ * v2 pipeline status order for task columns
+ * Tasks: NEW → ACTIVE → TO_BE_TESTED → READY_TO_PROD → CLOSED (+ WILL_NOT_IMPLEMENT)
  */
-const STATUS_ORDER: TaskStatus[] = [
-  'PENDING' as TaskStatus,
-  'IN_PROGRESS' as TaskStatus,
-  'IN_REVIEW' as TaskStatus,
-  'BLOCKED' as TaskStatus,
-  'ON_HOLD' as TaskStatus,
-  'COMPLETED' as TaskStatus,
-  'CANCELLED' as TaskStatus,
+const TASK_STATUS_ORDER: string[] = [
+  'NEW',
+  'ACTIVE',
+  'TO_BE_TESTED',
+  'READY_TO_PROD',
+  'CLOSED',
+  'WILL_NOT_IMPLEMENT',
 ];
 
 /**
@@ -228,65 +203,43 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   LOW: 1,
 };
 
-const BOARD_STATUS_ORDER: TaskStatus[] = [
-  'PENDING' as TaskStatus,
-  'IN_PROGRESS' as TaskStatus,
-  'IN_REVIEW' as TaskStatus,
-  'BLOCKED' as TaskStatus,
-  'COMPLETED' as TaskStatus,
+/**
+ * Board status order (subset for kanban view)
+ */
+const BOARD_STATUS_ORDER: string[] = [
+  'NEW',
+  'ACTIVE',
+  'TO_BE_TESTED',
+  'READY_TO_PROD',
+  'CLOSED',
 ];
 
 /**
- * Display names for task statuses
+ * Display names for v2 pipeline statuses
  */
 const STATUS_DISPLAY_NAMES: Record<string, string> = {
-  BACKLOG: 'Backlog',
-  PENDING: 'Pending',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  CHANGES_REQUESTED: 'Changes Requested',
-  TESTING: 'Testing',
-  READY_FOR_QA: 'Ready for QA',
-  INVESTIGATING: 'Investigating',
-  BLOCKED: 'Blocked',
-  ON_HOLD: 'On Hold',
-  DEPLOYED: 'Deployed',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  DEFERRED: 'Deferred',
-  DRAFT: 'Draft',
-  PLANNING: 'Planning',
-  IN_DEVELOPMENT: 'In Development',
-  VALIDATING: 'Validating',
-  PENDING_REVIEW: 'Pending Review',
-  ARCHIVED: 'Archived',
+  NEW: 'New',
+  ACTIVE: 'Active',
+  TO_BE_TESTED: 'To Be Tested',
+  READY_TO_PROD: 'Ready to Prod',
+  CLOSED: 'Closed',
+  WILL_NOT_IMPLEMENT: 'Will Not Implement',
 };
 
 /**
- * Feature status order for grouping features by their own status
+ * Feature status order for grouping features
+ * Features: NEW → ACTIVE → READY_TO_PROD → CLOSED (+ WILL_NOT_IMPLEMENT)
  */
-const FEATURE_STATUS_ORDER: FeatureStatus[] = [
-  'DRAFT' as FeatureStatus,
-  'PLANNING' as FeatureStatus,
-  'IN_DEVELOPMENT' as FeatureStatus,
-  'TESTING' as FeatureStatus,
-  'VALIDATING' as FeatureStatus,
-  'PENDING_REVIEW' as FeatureStatus,
-  'BLOCKED' as FeatureStatus,
-  'ON_HOLD' as FeatureStatus,
-  'DEPLOYED' as FeatureStatus,
-  'COMPLETED' as FeatureStatus,
-  'ARCHIVED' as FeatureStatus,
+const FEATURE_STATUS_ORDER: string[] = [
+  'NEW',
+  'ACTIVE',
+  'READY_TO_PROD',
+  'CLOSED',
+  'WILL_NOT_IMPLEMENT',
 ];
 
 /**
  * Build status-grouped tree rows for tasks
- * Groups tasks by status, then by feature within each status
- *
- * @param tasks - All tasks to group
- * @param features - Features to lookup task feature info
- * @param expandedGroups - Set of expanded group IDs (both status groups and composite feature keys)
- * @returns TreeRow[] grouped by status → feature → tasks
  */
 function buildStatusGroupedRows(
   tasks: Task[],
@@ -301,39 +254,14 @@ function buildStatusGroupedRows(
   }
 
   // Group tasks by status
-  const tasksByStatus = new Map<TaskStatus, Task[]>();
+  const tasksByStatus = new Map<string, Task[]>();
   for (const task of tasks) {
-    const status = task.status as TaskStatus;
-    const group = tasksByStatus.get(status) || [];
+    const group = tasksByStatus.get(task.status) || [];
     group.push(task);
-    tasksByStatus.set(status, group);
+    tasksByStatus.set(task.status, group);
   }
 
-  const featureStatusToTaskStatus = (status: FeatureStatus): TaskStatus => {
-    switch (status) {
-      case 'COMPLETED':
-      case 'DEPLOYED':
-        return 'COMPLETED' as TaskStatus;
-      case 'BLOCKED':
-        return 'BLOCKED' as TaskStatus;
-      case 'ON_HOLD':
-        return 'ON_HOLD' as TaskStatus;
-      case 'ARCHIVED':
-        return 'CANCELLED' as TaskStatus;
-      case 'PENDING_REVIEW':
-        return 'IN_REVIEW' as TaskStatus;
-      case 'IN_DEVELOPMENT':
-      case 'TESTING':
-      case 'VALIDATING':
-        return 'IN_PROGRESS' as TaskStatus;
-      case 'PLANNING':
-      case 'DRAFT':
-      default:
-        return 'PENDING' as TaskStatus;
-    }
-  };
-
-  // Only inject empty features into status buckets to avoid duplicate feature rows across statuses.
+  // Track which features have tasks
   const featureHasTasks = new Set<string>();
   for (const task of tasks) {
     if (task.featureId) {
@@ -341,20 +269,33 @@ function buildStatusGroupedRows(
     }
   }
 
-  // Group features by their mapped status bucket
-  const featuresByStatus = new Map<TaskStatus, FeatureWithTasks[]>();
-  for (const feature of features) {
-    if (featureHasTasks.has(feature.id)) {
-      continue;
+  // Map feature status to the closest task status for empty features
+  const featureStatusToTaskBucket = (featureStatus: string): string => {
+    switch (featureStatus) {
+      case 'CLOSED':
+      case 'WILL_NOT_IMPLEMENT':
+        return featureStatus;
+      case 'ACTIVE':
+      case 'READY_TO_PROD':
+        return featureStatus;
+      case 'NEW':
+      default:
+        return 'NEW';
     }
-    const mappedStatus = featureStatusToTaskStatus(feature.status as FeatureStatus);
+  };
+
+  // Group empty features by their mapped status bucket
+  const featuresByStatus = new Map<string, FeatureWithTasks[]>();
+  for (const feature of features) {
+    if (featureHasTasks.has(feature.id)) continue;
+    const mappedStatus = featureStatusToTaskBucket(feature.status);
     const group = featuresByStatus.get(mappedStatus) || [];
     group.push(feature);
     featuresByStatus.set(mappedStatus, group);
   }
 
   // Build rows in status order
-  for (const status of STATUS_ORDER) {
+  for (const status of TASK_STATUS_ORDER) {
     const statusTasks = tasksByStatus.get(status) || [];
     const statusFeatures = featuresByStatus.get(status) || [];
     if (statusTasks.length === 0 && statusFeatures.length === 0) continue;
@@ -363,7 +304,6 @@ function buildStatusGroupedRows(
     const statusExpanded = expandedGroups.has(statusGroupId);
     const statusExpandable = statusTasks.length > 0 || statusFeatures.length > 0;
 
-    // Add status group row (depth 0)
     rows.push({
       type: 'group',
       id: statusGroupId,
@@ -375,9 +315,8 @@ function buildStatusGroupedRows(
       expandable: statusExpandable,
     });
 
-    // If status group is expanded, group tasks by feature
     if (statusExpanded) {
-      // Group tasks by featureId (with null for unassigned)
+      // Group tasks by featureId
       const tasksByFeature = new Map<string | null, Task[]>();
       for (const task of statusTasks) {
         const featureId = task.featureId || null;
@@ -386,7 +325,7 @@ function buildStatusGroupedRows(
         tasksByFeature.set(featureId, group);
       }
 
-      // Sort tasks within each feature by priority (descending) then title
+      // Sort tasks within each feature by priority then title
       for (const [_, featureTasks] of tasksByFeature.entries()) {
         featureTasks.sort((a, b) => {
           const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
@@ -396,7 +335,6 @@ function buildStatusGroupedRows(
       }
 
       // Build feature sub-groups
-      // First, collect features that have tasks in this status (sorted by creation date)
       const tasksByFeatureId = new Map<string, Task[]>();
       for (const [featureId, featureTasks] of tasksByFeature.entries()) {
         if (featureId !== null) {
@@ -404,7 +342,7 @@ function buildStatusGroupedRows(
         }
       }
 
-      // Sort mapped features by creation date (ascending, oldest first), including empty features
+      // Sort features by creation date
       const statusFeatureMap = new Map<string, FeatureWithTasks>();
       for (const feature of statusFeatures) {
         statusFeatureMap.set(feature.id, feature);
@@ -420,7 +358,6 @@ function buildStatusGroupedRows(
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
 
-      // Add feature sub-group rows
       for (const feature of sortedStatusFeatures) {
         const featureId = feature.id;
         const featureTasks = tasksByFeatureId.get(featureId) || [];
@@ -428,7 +365,6 @@ function buildStatusGroupedRows(
         const featureExpandable = featureTasks.length > 0;
         const featureExpanded = featureExpandable && expandedGroups.has(compositeFeatureId);
 
-        // Add feature group row (depth 1)
         rows.push({
           type: 'group',
           id: compositeFeatureId,
@@ -441,7 +377,6 @@ function buildStatusGroupedRows(
           featureId,
         });
 
-        // Add task rows if feature is expanded (depth 1)
         if (featureExpanded) {
           featureTasks.forEach((task, index) => {
             const isLast = index === featureTasks.length - 1;
@@ -450,37 +385,33 @@ function buildStatusGroupedRows(
               task,
               isLast,
               depth: 2,
-              // No featureName needed - tasks are nested under their feature
             });
           });
         }
       }
 
-      // Add unassigned tasks (if any)
+      // Add unassigned tasks
       const unassignedTasks = tasksByFeature.get(null);
       if (unassignedTasks && unassignedTasks.length > 0) {
         const unassignedId = `${status}:unassigned`;
         const unassignedExpanded = expandedGroups.has(unassignedId);
 
-        // Sort unassigned tasks by priority (descending) then title
         unassignedTasks.sort((a, b) => {
           const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
           if (priorityDiff !== 0) return priorityDiff;
           return a.title.localeCompare(b.title);
         });
 
-        // Add unassigned group row (depth 1)
         rows.push({
           type: 'group',
           id: unassignedId,
           label: 'Unassigned',
-          status: status, // Use parent status for consistency
+          status: status,
           taskCount: unassignedTasks.length,
           expanded: unassignedExpanded,
           depth: 1,
         });
 
-        // Add task rows if unassigned group is expanded (depth 1)
         if (unassignedExpanded) {
           unassignedTasks.forEach((task, index) => {
             const isLast = index === unassignedTasks.length - 1;
@@ -501,11 +432,6 @@ function buildStatusGroupedRows(
 
 /**
  * Build feature-status-grouped tree rows
- * Groups features by their feature status, then nests tasks within each feature
- *
- * @param features - All features with their tasks
- * @param expandedGroups - Set of expanded group IDs
- * @returns TreeRow[] grouped by feature status → feature → tasks
  */
 function buildFeatureStatusGroupedRows(
   features: FeatureWithTasks[],
@@ -513,16 +439,13 @@ function buildFeatureStatusGroupedRows(
 ): TreeRow[] {
   const rows: TreeRow[] = [];
 
-  // Group features by their status
   const featuresByStatus = new Map<string, FeatureWithTasks[]>();
   for (const feature of features) {
-    const status = feature.status as string;
-    const group = featuresByStatus.get(status) || [];
+    const group = featuresByStatus.get(feature.status) || [];
     group.push(feature);
-    featuresByStatus.set(status, group);
+    featuresByStatus.set(feature.status, group);
   }
 
-  // Build rows in feature status order
   for (const status of FEATURE_STATUS_ORDER) {
     const statusFeatures = featuresByStatus.get(status) || [];
     if (statusFeatures.length === 0) continue;
@@ -530,10 +453,6 @@ function buildFeatureStatusGroupedRows(
     const statusGroupId = `fs:${status}`;
     const statusExpanded = expandedGroups.has(statusGroupId);
 
-    // Count total tasks across all features in this status
-    const totalTasks = statusFeatures.reduce((sum, f) => sum + f.tasks.length, 0);
-
-    // Add status group row (depth 0)
     rows.push({
       type: 'group',
       id: statusGroupId,
@@ -546,7 +465,6 @@ function buildFeatureStatusGroupedRows(
     });
 
     if (statusExpanded) {
-      // Sort features by creation date (oldest first)
       const sortedFeatures = [...statusFeatures].sort(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
@@ -556,7 +474,6 @@ function buildFeatureStatusGroupedRows(
         const featureExpandable = feature.tasks.length > 0;
         const featureExpanded = featureExpandable && expandedGroups.has(compositeFeatureId);
 
-        // Add feature group row (depth 1)
         rows.push({
           type: 'group',
           id: compositeFeatureId,
@@ -569,9 +486,7 @@ function buildFeatureStatusGroupedRows(
           featureId: feature.id,
         });
 
-        // Add task rows if feature is expanded (depth 2)
         if (featureExpanded) {
-          // Sort tasks by priority (descending) then title
           const sortedTasks = [...feature.tasks].sort((a, b) => {
             const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
             if (priorityDiff !== 0) return priorityDiff;
@@ -596,15 +511,6 @@ function buildFeatureStatusGroupedRows(
 
 /**
  * Hook for fetching a project tree with features and their tasks.
- * Also includes unassigned tasks (tasks without a feature).
- *
- * @param projectId - The project ID
- * @returns Project, features with nested tasks, unassigned tasks, task counts, status-grouped rows, loading/error states, and refresh function
- *
- * @example
- * ```tsx
- * const { project, features, unassignedTasks, taskCounts, statusGroupedRows, loading, error, refresh } = useProjectTree('proj-123');
- * ```
  */
 export function useProjectTree(projectId: string, expandedGroups: Set<string> = new Set()) {
   const { adapter } = useAdapter();
@@ -648,18 +554,15 @@ export function useProjectTree(projectId: string, expandedGroups: Set<string> = 
     const allFeatures = featuresResult.data;
     const tasks = tasksResult.data;
 
-    // Sort features by creation date ascending (oldest first)
     const sortedFeatures = [...allFeatures].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
-    // Build feature tree with nested tasks
     const featuresWithTasks: FeatureWithTasks[] = sortedFeatures.map((feature) => ({
       ...feature,
       tasks: tasks.filter((task) => task.featureId === feature.id),
     }));
 
-    // Find unassigned tasks (no featureId)
     const unassigned = tasks.filter((task) => !task.featureId);
 
     setProject(projectData);
@@ -674,12 +577,10 @@ export function useProjectTree(projectId: string, expandedGroups: Set<string> = 
     loadProjectTree();
   }, [loadProjectTree]);
 
-  // Build status-grouped rows using useMemo to recalculate when data changes
   const statusGroupedRows = useMemo(() => {
     return buildStatusGroupedRows(allTasks, features, expandedGroups);
   }, [allTasks, features, expandedGroups]);
 
-  // Build feature-status-grouped rows
   const featureStatusGroupedRows = useMemo(() => {
     return buildFeatureStatusGroupedRows(features, expandedGroups);
   }, [features, expandedGroups]);
@@ -699,7 +600,6 @@ export function useProjectTree(projectId: string, expandedGroups: Set<string> = 
 
 /**
  * Hook for fetching board data (kanban columns) for a project.
- * Returns tasks grouped by status with feature labels for each card.
  */
 export function useBoardData(projectId: string) {
   const { adapter } = useAdapter();
@@ -778,14 +678,6 @@ export function useBoardData(projectId: string) {
 
 /**
  * Hook for fetching a single task with its sections and dependencies.
- *
- * @param id - The task ID
- * @returns Task, sections, dependencies, loading/error states, and refresh function
- *
- * @example
- * ```tsx
- * const { task, sections, dependencies, loading, error, refresh } = useTask('task-123');
- * ```
  */
 export function useTask(id: string) {
   const { adapter } = useAdapter();
@@ -842,14 +734,6 @@ export function useTask(id: string) {
 
 /**
  * Hook for fetching a single feature with its tasks and sections.
- *
- * @param id - The feature ID
- * @returns Feature, tasks, sections, loading/error states, and refresh function
- *
- * @example
- * ```tsx
- * const { feature, tasks, sections, loading, error, refresh } = useFeature('feat-123');
- * ```
  */
 export function useFeature(id: string) {
   const { adapter } = useAdapter();
@@ -906,17 +790,6 @@ export function useFeature(id: string) {
 
 /**
  * Hook for performing full-text search across all entities.
- * Use with useDebounce to avoid excessive API calls.
- *
- * @param query - The search query string
- * @returns Search results with loading/error states
- *
- * @example
- * ```tsx
- * const [inputValue, setInputValue] = useState('');
- * const debouncedQuery = useDebounce(inputValue, 300);
- * const { results, loading, error } = useSearch(debouncedQuery);
- * ```
  */
 export function useSearch(query: string) {
   const { adapter } = useAdapter();
@@ -925,7 +798,6 @@ export function useSearch(query: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Don't search for empty queries
     if (!query.trim()) {
       setResults(null);
       setLoading(false);

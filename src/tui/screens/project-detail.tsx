@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
-import type { Project, Feature, ProjectStatus, Section, EntityType } from '@allpepper/task-orchestrator';
+import type { Project, Feature, Section, EntityType } from '@allpepper/task-orchestrator';
 import { StatusBadge } from '../components/status-badge';
 import { timeAgo } from '../../ui/lib/format';
 import { FormDialog } from '../components/form-dialog';
@@ -26,10 +26,8 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
   const [error, setError] = useState<string | null>(null);
   const [selectedFeatureIndex, setSelectedFeatureIndex] = useState(0);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-  const [mode, setMode] = useState<'idle' | 'edit-project' | 'project-status'>('idle');
+  const [mode, setMode] = useState<'idle' | 'edit-project'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [transitions, setTransitions] = useState<string[]>([]);
-  const [transitionIndex, setTransitionIndex] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -70,15 +68,6 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
     if (input === 'e' && project) {
       setMode('edit-project');
     }
-    if (input === 's' && project) {
-      adapter.getAllowedTransitions('PROJECT', project.status).then((result) => {
-        if (result.success) {
-          setTransitions(result.data);
-          setTransitionIndex(0);
-          setMode('project-status');
-        }
-      });
-    }
     if (features.length > 0) {
       if (input === 'j' || key.downArrow) {
         setSelectedFeatureIndex((prev) => Math.min(prev + 1, features.length - 1));
@@ -94,31 +83,6 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
       }
     }
   });
-
-  useInput((input, key) => {
-    if (mode !== 'project-status' || !project) return;
-    if (input === 'j' || key.downArrow) {
-      setTransitionIndex((prev) => (prev + 1) % Math.max(1, transitions.length));
-      return;
-    }
-    if (input === 'k' || key.upArrow) {
-      setTransitionIndex((prev) => (prev - 1 + Math.max(1, transitions.length)) % Math.max(1, transitions.length));
-      return;
-    }
-    if (key.escape) {
-      setMode('idle');
-      return;
-    }
-    if (key.return) {
-      const nextStatus = transitions[transitionIndex] as ProjectStatus | undefined;
-      if (!nextStatus) return;
-      adapter.setProjectStatus(project.id, nextStatus, project.version).then((result) => {
-        if (!result.success) setLocalError(result.error);
-        load();
-        setMode('idle');
-      });
-    }
-  }, { isActive: mode === 'project-status' });
 
   if (loading) {
     return (
@@ -146,11 +110,9 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
 
   return (
     <Box flexDirection="column" padding={1}>
-      {/* Project Header */}
+      {/* Project Header (no status - projects are stateless in v2) */}
       <Box marginBottom={1}>
         <Text bold>{project.name}</Text>
-        <Text> </Text>
-        <StatusBadge status={project.status} />
       </Box>
 
       {/* Divider */}
@@ -219,6 +181,9 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
                   <Text bold={isSelected}>
                     {feature.name}
                   </Text>
+                  {feature.blockedBy.length > 0 && (
+                    <Text color={theme.colors.blocked}> [B]</Text>
+                  )}
                 </Box>
               );
             })}
@@ -233,7 +198,7 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
         </Box>
       )}
 
-      {/* Sections Panel - only show if there are sections */}
+      {/* Sections Panel */}
       {sections.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold>Sections</Text>
@@ -249,7 +214,7 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
       {/* Help Footer */}
       <Box marginTop={1}>
         <Text dimColor>
-          ESC/h: Back | r: Refresh | e: Edit | s: Status{features.length > 0 ? ' | j/k: Navigate | Enter: Select Feature' : ''}
+          ESC/h: Back | r: Refresh | e: Edit{features.length > 0 ? ' | j/k: Navigate | Enter: Select Feature' : ''}
         </Text>
       </Box>
 
@@ -277,28 +242,6 @@ export function ProjectDetail({ projectId, onSelectFeature, onBack }: ProjectDet
             });
           }}
         />
-      ) : null}
-
-      {mode === 'project-status' ? (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.accent} paddingX={1} marginTop={1}>
-          <Text bold>Set Project Status</Text>
-          {transitions.length === 0 ? (
-            <Text dimColor>No transitions available</Text>
-          ) : (
-            transitions.map((status, idx) => {
-              const isSelected = idx === transitionIndex;
-              return (
-                <Box key={status}>
-                  <Text color={isSelected ? theme.colors.highlight : undefined}>
-                    {isSelected ? '▎' : '  '}
-                  </Text>
-                  <Text bold={isSelected}> {status}</Text>
-                </Box>
-              );
-            })
-          )}
-          <Text dimColor>Enter apply • Esc cancel</Text>
-        </Box>
       ) : null}
     </Box>
   );

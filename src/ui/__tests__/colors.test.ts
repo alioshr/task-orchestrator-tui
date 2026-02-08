@@ -7,6 +7,7 @@ import {
   isActiveStatus,
   isBlockedStatus,
   isCompletedStatus,
+  isNewStatus,
 } from '../lib/colors';
 import { darkTheme } from '../themes/dark';
 import { lightTheme } from '../themes/light';
@@ -14,16 +15,19 @@ import { Priority } from '@allpepper/task-orchestrator';
 
 describe('color utilities', () => {
   describe('getStatusColor', () => {
-    test('returns correct color for task status (dark)', () => {
-      expect(getStatusColor('IN_PROGRESS', darkTheme)).toBe('#4da6ff');
-      expect(getStatusColor('COMPLETED', darkTheme)).toBe('#4ade80');
-      expect(getStatusColor('BLOCKED', darkTheme)).toBe('#ff6666');
+    test('returns correct color for v2 pipeline status (dark)', () => {
+      expect(getStatusColor('ACTIVE', darkTheme)).toBe('#4da6ff');
+      expect(getStatusColor('CLOSED', darkTheme)).toBe('#4ade80');
+      expect(getStatusColor('NEW', darkTheme)).toBe('#a0a0c0');
+      expect(getStatusColor('TO_BE_TESTED', darkTheme)).toBe('#66cccc');
+      expect(getStatusColor('READY_TO_PROD', darkTheme)).toBe('#66cc99');
+      expect(getStatusColor('WILL_NOT_IMPLEMENT', darkTheme)).toBe('#808080');
     });
 
-    test('returns correct color for task status (light)', () => {
-      expect(getStatusColor('IN_PROGRESS', lightTheme)).toBe('#3b82f6');
-      expect(getStatusColor('COMPLETED', lightTheme)).toBe('#16a34a');
-      expect(getStatusColor('BLOCKED', lightTheme)).toBe('#ef4444');
+    test('returns correct color for v2 pipeline status (light)', () => {
+      expect(getStatusColor('ACTIVE', lightTheme)).toBe('#2563eb');
+      expect(getStatusColor('CLOSED', lightTheme)).toBe('#16a34a');
+      expect(getStatusColor('NEW', lightTheme)).toBe('#7070a0');
     });
 
     test('returns muted for unknown status', () => {
@@ -40,7 +44,7 @@ describe('color utilities', () => {
 
     test('returns correct colors (light)', () => {
       expect(getPriorityColor(Priority.HIGH, lightTheme)).toBe('#dc2626');
-      expect(getPriorityColor(Priority.MEDIUM, lightTheme)).toBe('#ca8a04');
+      expect(getPriorityColor(Priority.MEDIUM, lightTheme)).toBe('#d97706');
       expect(getPriorityColor(Priority.LOW, lightTheme)).toBe('#16a34a');
     });
   });
@@ -67,7 +71,7 @@ describe('color utilities', () => {
 
     test('returns semantic colors (light)', () => {
       expect(getSemanticColor('success', lightTheme)).toBe('#16a34a');
-      expect(getSemanticColor('warning', lightTheme)).toBe('#ca8a04');
+      expect(getSemanticColor('warning', lightTheme)).toBe('#d97706');
       expect(getSemanticColor('error', lightTheme)).toBe('#dc2626');
       expect(getSemanticColor('info', lightTheme)).toBe('#0891b2');
     });
@@ -75,26 +79,29 @@ describe('color utilities', () => {
 
   describe('status classification', () => {
     test('isActiveStatus', () => {
-      expect(isActiveStatus('IN_PROGRESS')).toBe(true);
-      expect(isActiveStatus('IN_DEVELOPMENT')).toBe(true);
-      expect(isActiveStatus('TESTING')).toBe(true);
-      expect(isActiveStatus('COMPLETED')).toBe(false);
-      expect(isActiveStatus('BLOCKED')).toBe(false);
+      expect(isActiveStatus('ACTIVE')).toBe(true);
+      expect(isActiveStatus('TO_BE_TESTED')).toBe(true);
+      expect(isActiveStatus('READY_TO_PROD')).toBe(true);
+      expect(isActiveStatus('CLOSED')).toBe(false);
+      expect(isActiveStatus('NEW')).toBe(false);
     });
 
-    test('isBlockedStatus', () => {
-      expect(isBlockedStatus('BLOCKED')).toBe(true);
-      expect(isBlockedStatus('ON_HOLD')).toBe(true);
-      expect(isBlockedStatus('CHANGES_REQUESTED')).toBe(true);
-      expect(isBlockedStatus('IN_PROGRESS')).toBe(false);
+    test('isBlockedStatus always returns false (blocking is field-based in v2)', () => {
+      expect(isBlockedStatus('ACTIVE')).toBe(false);
+      expect(isBlockedStatus('NEW')).toBe(false);
+      expect(isBlockedStatus('CLOSED')).toBe(false);
     });
 
     test('isCompletedStatus', () => {
-      expect(isCompletedStatus('COMPLETED')).toBe(true);
-      expect(isCompletedStatus('DEPLOYED')).toBe(true);
-      expect(isCompletedStatus('ARCHIVED')).toBe(true);
-      expect(isCompletedStatus('CANCELLED')).toBe(true);
-      expect(isCompletedStatus('IN_PROGRESS')).toBe(false);
+      expect(isCompletedStatus('CLOSED')).toBe(true);
+      expect(isCompletedStatus('WILL_NOT_IMPLEMENT')).toBe(true);
+      expect(isCompletedStatus('ACTIVE')).toBe(false);
+      expect(isCompletedStatus('NEW')).toBe(false);
+    });
+
+    test('isNewStatus', () => {
+      expect(isNewStatus('NEW')).toBe(true);
+      expect(isNewStatus('ACTIVE')).toBe(false);
     });
   });
 });

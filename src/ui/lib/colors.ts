@@ -1,9 +1,16 @@
+/**
+ * Color and Status Utilities
+ *
+ * Theme-aware color helpers for status badges, priority indicators, etc.
+ * Updated for v2 pipeline states.
+ */
+
 import type { Theme, StatusKey } from '../themes/types';
 import type { Priority } from '@allpepper/task-orchestrator';
 
 /**
- * Get the color for a status value
- * Falls back to muted color if status not found
+ * Get the color for a status value.
+ * Falls back to muted color if status not found.
  */
 export function getStatusColor(status: string, theme: Theme): string {
   const color = theme.colors.status[status as StatusKey];
@@ -19,9 +26,6 @@ export function getPriorityColor(priority: Priority, theme: Theme): string {
 
 /**
  * Get priority dots visual indicator
- * HIGH: ●●● (3 filled)
- * MEDIUM: ●●○ (2 filled)
- * LOW: ●○○ (1 filled)
  */
 export function getPriorityDots(priority: Priority): string {
   switch (priority) {
@@ -47,33 +51,32 @@ export function getSemanticColor(
 }
 
 /**
- * Determine if a status represents an "active" state
+ * Check if a status represents an active/in-progress state
  */
 export function isActiveStatus(status: string): boolean {
-  const activeStatuses = [
-    'IN_PROGRESS',
-    'IN_DEVELOPMENT',
-    'IN_REVIEW',
-    'TESTING',
-    'VALIDATING',
-    'INVESTIGATING',
-    'READY_FOR_QA',
-  ];
-  return activeStatuses.includes(status);
+  return status === 'ACTIVE' || status === 'TO_BE_TESTED' || status === 'READY_TO_PROD';
 }
 
 /**
- * Determine if a status represents a "blocked" state
- */
-export function isBlockedStatus(status: string): boolean {
-  const blockedStatuses = ['BLOCKED', 'ON_HOLD', 'CHANGES_REQUESTED'];
-  return blockedStatuses.includes(status);
-}
-
-/**
- * Determine if a status represents a "completed" state
+ * Check if a status represents a terminal/completed state
  */
 export function isCompletedStatus(status: string): boolean {
-  const completedStatuses = ['COMPLETED', 'DEPLOYED', 'ARCHIVED', 'CANCELLED'];
-  return completedStatuses.includes(status);
+  return status === 'CLOSED' || status === 'WILL_NOT_IMPLEMENT';
+}
+
+/**
+ * Check if a status is the initial state
+ */
+export function isNewStatus(status: string): boolean {
+  return status === 'NEW';
+}
+
+/**
+ * In v2, blocking is field-based (blockedBy array), not a status.
+ * This function always returns false since no status is "blocked".
+ * Use the blockedBy field on the entity instead.
+ * @deprecated Use entity.blockedBy.length > 0 instead
+ */
+export function isBlockedStatus(_status: string): boolean {
+  return false;
 }

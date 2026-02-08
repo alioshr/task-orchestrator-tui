@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useAdapter } from '../../ui/context/adapter-context';
 import { useFeature } from '../../ui/hooks/use-data';
-import type { FeatureStatus, Priority } from '@allpepper/task-orchestrator';
+import type { Priority } from '@allpepper/task-orchestrator';
+import type { WorkflowState } from '../../ui/adapters/types';
 import { StatusBadge } from '../components/status-badge';
 import { PriorityBadge } from '../components/priority-badge';
 import { SectionList } from '../components/section-list';
@@ -11,6 +12,7 @@ import { FormDialog } from '../components/form-dialog';
 import { ErrorMessage } from '../components/error-message';
 import { EmptyState } from '../components/empty-state';
 import { useTheme } from '../../ui/context/theme-context';
+import { StatusActions } from '../components/status-actions';
 
 interface FeatureDetailProps {
   featureId: string;
@@ -26,8 +28,19 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [mode, setMode] = useState<'idle' | 'edit-feature' | 'create-task' | 'feature-status'>('idle');
   const [localError, setLocalError] = useState<string | null>(null);
-  const [transitions, setTransitions] = useState<string[]>([]);
-  const [transitionIndex, setTransitionIndex] = useState(0);
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Fetch workflow state when feature loads
+  useEffect(() => {
+    if (feature) {
+      adapter.getWorkflowState('feature', feature.id).then((result) => {
+        if (result.success) {
+          setWorkflowState(result.data);
+        }
+      });
+    }
+  }, [adapter, feature]);
 
   // Handle keyboard navigation
   useInput((input, key) => {
@@ -45,13 +58,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
       setMode('create-task');
     }
     if (input === 's' && feature) {
-      adapter.getAllowedTransitions('FEATURE', feature.status).then((result) => {
-        if (result.success) {
-          setTransitions(result.data);
-          setTransitionIndex(0);
-          setMode('feature-status');
-        }
-      });
+      setMode('feature-status');
     }
     if (tasks.length > 0) {
       if (input === 'j' || key.downArrow) {
@@ -69,30 +76,47 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
     }
   });
 
-  useInput((input, key) => {
-    if (mode !== 'feature-status' || !feature) return;
-    if (input === 'j' || key.downArrow) {
-      setTransitionIndex((prev) => (prev + 1) % Math.max(1, transitions.length));
-      return;
-    }
-    if (input === 'k' || key.upArrow) {
-      setTransitionIndex((prev) => (prev - 1 + Math.max(1, transitions.length)) % Math.max(1, transitions.length));
-      return;
-    }
+  // Handle status panel (when in feature-status mode, Esc goes back to idle)
+  useInput((_input, key) => {
+    if (mode !== 'feature-status') return;
     if (key.escape) {
       setMode('idle');
-      return;
-    }
-    if (key.return) {
-      const nextStatus = transitions[transitionIndex] as FeatureStatus | undefined;
-      if (!nextStatus) return;
-      adapter.setFeatureStatus(feature.id, nextStatus, feature.version).then((result) => {
-        if (!result.success) setLocalError(result.error);
-        refresh();
-        setMode('idle');
-      });
     }
   }, { isActive: mode === 'feature-status' });
+
+  // Pipeline operations
+  const handleAdvance = async () => {
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.advance('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
+
+  const handleRevert = async () => {
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.revert('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
+
+  const handleTerminate = async () => {
+    if (!feature) return;
+    setIsUpdatingStatus(true);
+    setLocalError(null);
+    const result = await adapter.terminate('feature', feature.id, feature.version);
+    if (!result.success) setLocalError(result.error);
+    await refresh();
+    setIsUpdatingStatus(false);
+    setMode('idle');
+  };
 
   if (loading) {
     return (
@@ -125,6 +149,9 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         <Text bold>{feature.name}</Text>
         <Text> </Text>
         <StatusBadge status={feature.status} />
+        {feature.blockedBy.length > 0 && (
+          <Text color={theme.colors.blocked}> [BLOCKED]</Text>
+        )}
       </Box>
 
       {/* Divider */}
@@ -197,6 +224,9 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
                   <Text bold={isSelected}>
                     {task.title}
                   </Text>
+                  {task.blockedBy.length > 0 && (
+                    <Text color={theme.colors.blocked}> [B]</Text>
+                  )}
                 </Box>
               );
             })}
@@ -211,7 +241,7 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
         </Box>
       )}
 
-      {/* Sections Panel - only show if there are sections */}
+      {/* Sections Panel */}
       {sections.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold>Sections</Text>
@@ -289,23 +319,19 @@ export function FeatureDetail({ featureId, onSelectTask, onBack }: FeatureDetail
 
       {mode === 'feature-status' ? (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.accent} paddingX={1} marginTop={1}>
-          <Text bold>Set Feature Status</Text>
-          {transitions.length === 0 ? (
-            <Text dimColor>No transitions available</Text>
-          ) : (
-            transitions.map((status, idx) => {
-              const isSelected = idx === transitionIndex;
-              return (
-                <Box key={status}>
-                  <Text color={isSelected ? theme.colors.highlight : undefined}>
-                    {isSelected ? '▎' : '  '}
-                  </Text>
-                  <Text bold={isSelected}> {status}</Text>
-                </Box>
-              );
-            })
-          )}
-          <Text dimColor>Enter apply • Esc cancel</Text>
+          <StatusActions
+            currentStatus={feature.status}
+            nextStatus={workflowState?.nextStatus ?? null}
+            prevStatus={workflowState?.prevStatus ?? null}
+            isBlocked={feature.blockedBy.length > 0}
+            isTerminal={workflowState?.isTerminal ?? false}
+            isActive={true}
+            loading={isUpdatingStatus}
+            onAdvance={handleAdvance}
+            onRevert={handleRevert}
+            onTerminate={handleTerminate}
+          />
+          <Text dimColor>Esc: cancel</Text>
         </Box>
       ) : null}
     </Box>

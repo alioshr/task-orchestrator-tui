@@ -1,21 +1,20 @@
 import { describe, it, expect } from 'bun:test';
-import { TaskStatus, Priority, FeatureStatus, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import type { Task } from '@allpepper/task-orchestrator';
 import type { FeatureWithTasks } from '../../lib/types';
 import type { TreeRow } from '../../../tui/components/tree-view';
 
 /**
  * Test helper: Build status-grouped tree rows for tasks
- * This is a copy of the function from use-data.ts for testing purposes
+ * This is a copy of the function from use-data.ts for testing purposes (v2 pipeline)
  */
-const STATUS_ORDER: TaskStatus[] = [
-  'PENDING' as TaskStatus,
-  'IN_PROGRESS' as TaskStatus,
-  'IN_REVIEW' as TaskStatus,
-  'BLOCKED' as TaskStatus,
-  'ON_HOLD' as TaskStatus,
-  'COMPLETED' as TaskStatus,
-  'CANCELLED' as TaskStatus,
+const STATUS_ORDER: string[] = [
+  'NEW',
+  'ACTIVE',
+  'TO_BE_TESTED',
+  'READY_TO_PROD',
+  'CLOSED',
+  'WILL_NOT_IMPLEMENT',
 ];
 
 const PRIORITY_ORDER: Record<Priority, number> = {
@@ -25,20 +24,12 @@ const PRIORITY_ORDER: Record<Priority, number> = {
 };
 
 const STATUS_DISPLAY_NAMES: Record<string, string> = {
-  BACKLOG: 'Backlog',
-  PENDING: 'Pending',
-  IN_PROGRESS: 'In Progress',
-  IN_REVIEW: 'In Review',
-  CHANGES_REQUESTED: 'Changes Requested',
-  TESTING: 'Testing',
-  READY_FOR_QA: 'Ready for QA',
-  INVESTIGATING: 'Investigating',
-  BLOCKED: 'Blocked',
-  ON_HOLD: 'On Hold',
-  DEPLOYED: 'Deployed',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-  DEFERRED: 'Deferred',
+  NEW: 'New',
+  ACTIVE: 'Active',
+  TO_BE_TESTED: 'To Be Tested',
+  READY_TO_PROD: 'Ready to Prod',
+  CLOSED: 'Closed',
+  WILL_NOT_IMPLEMENT: 'Will Not Implement',
 };
 
 function buildStatusGroupedRows(
@@ -54,38 +45,15 @@ function buildStatusGroupedRows(
   }
 
   // Group tasks by status
-  const tasksByStatus = new Map<TaskStatus, Task[]>();
+  const tasksByStatus = new Map<string, Task[]>();
   for (const task of tasks) {
-    const status = task.status as TaskStatus;
+    const status = task.status;
     const group = tasksByStatus.get(status) || [];
     group.push(task);
     tasksByStatus.set(status, group);
   }
 
-  const featureStatusToTaskStatus = (status: FeatureStatus): TaskStatus => {
-    switch (status) {
-      case 'COMPLETED':
-      case 'DEPLOYED':
-        return 'COMPLETED' as TaskStatus;
-      case 'BLOCKED':
-        return 'BLOCKED' as TaskStatus;
-      case 'ON_HOLD':
-        return 'ON_HOLD' as TaskStatus;
-      case 'ARCHIVED':
-        return 'CANCELLED' as TaskStatus;
-      case 'PENDING_REVIEW':
-        return 'IN_REVIEW' as TaskStatus;
-      case 'IN_DEVELOPMENT':
-      case 'TESTING':
-      case 'VALIDATING':
-        return 'IN_PROGRESS' as TaskStatus;
-      case 'PLANNING':
-      case 'DRAFT':
-      default:
-        return 'PENDING' as TaskStatus;
-    }
-  };
-
+  // Features without tasks go into their own status bucket
   const featureHasTasks = new Set<string>();
   for (const task of tasks) {
     if (task.featureId) {
@@ -93,15 +61,15 @@ function buildStatusGroupedRows(
     }
   }
 
-  const featuresByStatus = new Map<TaskStatus, FeatureWithTasks[]>();
+  const featuresByStatus = new Map<string, FeatureWithTasks[]>();
   for (const feature of features) {
     if (featureHasTasks.has(feature.id)) {
       continue;
     }
-    const mappedStatus = featureStatusToTaskStatus(feature.status as FeatureStatus);
-    const group = featuresByStatus.get(mappedStatus) || [];
+    const status = feature.status;
+    const group = featuresByStatus.get(status) || [];
     group.push(feature);
-    featuresByStatus.set(mappedStatus, group);
+    featuresByStatus.set(status, group);
   }
 
   // Build rows in status order
@@ -147,7 +115,6 @@ function buildStatusGroupedRows(
       }
 
       // Build feature sub-groups
-      // First, collect features that have tasks in this status (sorted by creation date)
       const tasksByFeatureId = new Map<string, Task[]>();
       for (const [featureId, featureTasks] of tasksByFeature.entries()) {
         if (featureId !== null) {
@@ -191,7 +158,7 @@ function buildStatusGroupedRows(
           featureId,
         });
 
-        // Add task rows if feature is expanded (depth 1)
+        // Add task rows if feature is expanded (depth 2)
         if (featureExpanded) {
           featureTasks.forEach((task, index) => {
             const isLast = index === featureTasks.length - 1;
@@ -200,7 +167,6 @@ function buildStatusGroupedRows(
               task,
               isLast,
               depth: 2,
-              // No featureName needed - tasks are nested under their feature
             });
           });
         }
@@ -224,13 +190,13 @@ function buildStatusGroupedRows(
           type: 'group',
           id: unassignedId,
           label: 'Unassigned',
-          status: status, // Use parent status for consistency
+          status: status,
           taskCount: unassignedTasks.length,
           expanded: unassignedExpanded,
           depth: 1,
         });
 
-        // Add task rows if unassigned group is expanded (depth 1)
+        // Add task rows if unassigned group is expanded (depth 2)
         if (unassignedExpanded) {
           unassignedTasks.forEach((task, index) => {
             const isLast = index === unassignedTasks.length - 1;
@@ -253,7 +219,7 @@ describe('buildStatusGroupedRows', () => {
   const createTask = (
     id: string,
     title: string,
-    status: TaskStatus,
+    status: string,
     priority: Priority,
     featureId?: string
   ): Task => ({
@@ -263,8 +229,9 @@ describe('buildStatusGroupedRows', () => {
     status,
     priority,
     complexity: 5,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date(),
     modifiedAt: new Date(),
     featureId,
@@ -274,8 +241,10 @@ describe('buildStatusGroupedRows', () => {
     id,
     name,
     summary: `Summary for ${name}`,
-    status: FeatureStatus.IN_DEVELOPMENT,
+    status: 'ACTIVE',
     priority: Priority.MEDIUM,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
     createdAt: new Date(),
     modifiedAt: new Date(),
@@ -284,30 +253,30 @@ describe('buildStatusGroupedRows', () => {
 
   it('should group tasks by status in the correct order', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'COMPLETED' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'PENDING' as TaskStatus, Priority.MEDIUM),
-      createTask('t3', 'Task 3', 'IN_PROGRESS' as TaskStatus, Priority.LOW),
+      createTask('t1', 'Task 1', 'CLOSED', Priority.HIGH),
+      createTask('t2', 'Task 2', 'NEW', Priority.MEDIUM),
+      createTask('t3', 'Task 3', 'ACTIVE', Priority.LOW),
     ];
 
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'IN_PROGRESS', 'COMPLETED']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'ACTIVE', 'CLOSED']));
 
     // Status groups should appear in STATUS_ORDER (with unassigned sub-groups)
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
     expect(statusGroupRows.length).toBe(3);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('PENDING');
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('IN_PROGRESS');
-    expect(statusGroupRows[2]?.type === 'group' && statusGroupRows[2].id).toBe('COMPLETED');
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('NEW');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('ACTIVE');
+    expect(statusGroupRows[2]?.type === 'group' && statusGroupRows[2].id).toBe('CLOSED');
   });
 
   it('should sort tasks by priority within each status group', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Low Priority', 'PENDING' as TaskStatus, Priority.LOW),
-      createTask('t2', 'High Priority', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t3', 'Medium Priority', 'PENDING' as TaskStatus, Priority.MEDIUM),
+      createTask('t1', 'Low Priority', 'NEW', Priority.LOW),
+      createTask('t2', 'High Priority', 'NEW', Priority.HIGH),
+      createTask('t3', 'Medium Priority', 'NEW', Priority.MEDIUM),
     ];
 
     // Need to expand both status and unassigned groups to see tasks
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'PENDING:unassigned']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'NEW:unassigned']));
 
     const taskRows = rows.filter((r) => r.type === 'task');
     expect(taskRows.length).toBe(3);
@@ -318,13 +287,13 @@ describe('buildStatusGroupedRows', () => {
 
   it('should sort tasks alphabetically when priorities are equal', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Zebra Task', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Alpha Task', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t3', 'Beta Task', 'PENDING' as TaskStatus, Priority.HIGH),
+      createTask('t1', 'Zebra Task', 'NEW', Priority.HIGH),
+      createTask('t2', 'Alpha Task', 'NEW', Priority.HIGH),
+      createTask('t3', 'Beta Task', 'NEW', Priority.HIGH),
     ];
 
     // Need to expand both status and unassigned groups to see tasks
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'PENDING:unassigned']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'NEW:unassigned']));
 
     const taskRows = rows.filter((r) => r.type === 'task');
     expect(taskRows.length).toBe(3);
@@ -335,8 +304,8 @@ describe('buildStatusGroupedRows', () => {
 
   it('should only show task rows when group is expanded', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'PENDING' as TaskStatus, Priority.MEDIUM),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH),
+      createTask('t2', 'Task 2', 'NEW', Priority.MEDIUM),
     ];
 
     // Not expanded - status group collapsed
@@ -345,15 +314,15 @@ describe('buildStatusGroupedRows', () => {
     expect(collapsedRows[0]?.type).toBe('group');
 
     // Status expanded, but unassigned group collapsed (tasks have no feature)
-    const statusExpandedRows = buildStatusGroupedRows(tasks, [], new Set(['PENDING']));
+    const statusExpandedRows = buildStatusGroupedRows(tasks, [], new Set(['NEW']));
     expect(statusExpandedRows.length).toBe(2); // Status group + Unassigned group
     expect(statusExpandedRows[0]?.type).toBe('group');
-    expect(statusExpandedRows[0]?.type === 'group' && statusExpandedRows[0].id).toBe('PENDING');
+    expect(statusExpandedRows[0]?.type === 'group' && statusExpandedRows[0].id).toBe('NEW');
     expect(statusExpandedRows[1]?.type).toBe('group');
-    expect(statusExpandedRows[1]?.type === 'group' && statusExpandedRows[1].id).toBe('PENDING:unassigned');
+    expect(statusExpandedRows[1]?.type === 'group' && statusExpandedRows[1].id).toBe('NEW:unassigned');
 
     // Both status and unassigned group expanded
-    const fullyExpandedRows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'PENDING:unassigned']));
+    const fullyExpandedRows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'NEW:unassigned']));
     expect(fullyExpandedRows.length).toBe(4); // Status group + Unassigned group + 2 tasks
     expect(fullyExpandedRows[0]?.type).toBe('group');
     expect(fullyExpandedRows[1]?.type).toBe('group');
@@ -368,23 +337,23 @@ describe('buildStatusGroupedRows', () => {
     ];
 
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH, 'f1'),
-      createTask('t2', 'Task 2', 'PENDING' as TaskStatus, Priority.MEDIUM, 'f2'),
-      createTask('t3', 'Task 3', 'PENDING' as TaskStatus, Priority.LOW),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH, 'f1'),
+      createTask('t2', 'Task 2', 'NEW', Priority.MEDIUM, 'f2'),
+      createTask('t3', 'Task 3', 'NEW', Priority.LOW),
     ];
 
     // Expand status to see feature groups
-    const rows = buildStatusGroupedRows(tasks, features, new Set(['PENDING']));
+    const rows = buildStatusGroupedRows(tasks, features, new Set(['NEW']));
 
     // Should have: Status group + 2 Feature groups + Unassigned group
     const groupRows = rows.filter((r) => r.type === 'group');
-    expect(groupRows.length).toBe(4); // PENDING, PENDING:f1, PENDING:f2, PENDING:unassigned
-    expect(groupRows[0]?.type === 'group' && groupRows[0].id).toBe('PENDING');
-    expect(groupRows[1]?.type === 'group' && groupRows[1].id).toBe('PENDING:f1');
+    expect(groupRows.length).toBe(4); // NEW, NEW:f1, NEW:f2, NEW:unassigned
+    expect(groupRows[0]?.type === 'group' && groupRows[0].id).toBe('NEW');
+    expect(groupRows[1]?.type === 'group' && groupRows[1].id).toBe('NEW:f1');
     expect(groupRows[1]?.type === 'group' && groupRows[1].label).toBe('Feature Alpha');
-    expect(groupRows[2]?.type === 'group' && groupRows[2].id).toBe('PENDING:f2');
+    expect(groupRows[2]?.type === 'group' && groupRows[2].id).toBe('NEW:f2');
     expect(groupRows[2]?.type === 'group' && groupRows[2].label).toBe('Feature Beta');
-    expect(groupRows[3]?.type === 'group' && groupRows[3].id).toBe('PENDING:unassigned');
+    expect(groupRows[3]?.type === 'group' && groupRows[3].id).toBe('NEW:unassigned');
     expect(groupRows[3]?.type === 'group' && groupRows[3].label).toBe('Unassigned');
 
     // No tasks should be visible yet (feature groups not expanded)
@@ -392,7 +361,7 @@ describe('buildStatusGroupedRows', () => {
     expect(taskRows.length).toBe(0);
 
     // Expand a feature group to see its tasks
-    const expandedRows = buildStatusGroupedRows(tasks, features, new Set(['PENDING', 'PENDING:f1']));
+    const expandedRows = buildStatusGroupedRows(tasks, features, new Set(['NEW', 'NEW:f1']));
     const expandedTaskRows = expandedRows.filter((r) => r.type === 'task');
     expect(expandedTaskRows.length).toBe(1); // Only f1's task
     expect(expandedTaskRows[0]?.type === 'task' && expandedTaskRows[0].task.id).toBe('t1');
@@ -402,60 +371,60 @@ describe('buildStatusGroupedRows', () => {
 
   it('should set isLast correctly for the last task in each feature group', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'PENDING' as TaskStatus, Priority.MEDIUM),
-      createTask('t3', 'Task 3', 'IN_PROGRESS' as TaskStatus, Priority.HIGH),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH),
+      createTask('t2', 'Task 2', 'NEW', Priority.MEDIUM),
+      createTask('t3', 'Task 3', 'ACTIVE', Priority.HIGH),
     ];
 
     // Expand all groups to see tasks
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'PENDING:unassigned', 'IN_PROGRESS', 'IN_PROGRESS:unassigned']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'NEW:unassigned', 'ACTIVE', 'ACTIVE:unassigned']));
 
-    // Find tasks within PENDING:unassigned group
-    const pendingUnassignedIndex = rows.findIndex(r => r.type === 'group' && r.id === 'PENDING:unassigned');
-    const nextGroupAfterPendingUnassigned = rows.findIndex((r, i) => i > pendingUnassignedIndex && r.type === 'group');
-    const pendingTasks = rows.slice(pendingUnassignedIndex + 1, nextGroupAfterPendingUnassigned === -1 ? rows.length : nextGroupAfterPendingUnassigned);
+    // Find tasks within NEW:unassigned group
+    const newUnassignedIndex = rows.findIndex(r => r.type === 'group' && r.id === 'NEW:unassigned');
+    const nextGroupAfterNewUnassigned = rows.findIndex((r, i) => i > newUnassignedIndex && r.type === 'group');
+    const newTasks = rows.slice(newUnassignedIndex + 1, nextGroupAfterNewUnassigned === -1 ? rows.length : nextGroupAfterNewUnassigned);
 
-    // Last task in PENDING:unassigned should have isLast=true
-    const lastPendingTask = pendingTasks[pendingTasks.length - 1];
-    expect(lastPendingTask?.type === 'task' && lastPendingTask.isLast).toBe(true);
+    // Last task in NEW:unassigned should have isLast=true
+    const lastNewTask = newTasks[newTasks.length - 1];
+    expect(lastNewTask?.type === 'task' && lastNewTask.isLast).toBe(true);
 
-    // First task in PENDING:unassigned should have isLast=false
-    const firstPendingTask = pendingTasks[0];
-    expect(firstPendingTask?.type === 'task' && firstPendingTask.isLast).toBe(false);
+    // First task in NEW:unassigned should have isLast=false
+    const firstNewTask = newTasks[0];
+    expect(firstNewTask?.type === 'task' && firstNewTask.isLast).toBe(false);
 
-    // Find tasks within IN_PROGRESS:unassigned group
-    const inProgressUnassignedIndex = rows.findIndex(r => r.type === 'group' && r.id === 'IN_PROGRESS:unassigned');
-    const inProgressTasks = rows.slice(inProgressUnassignedIndex + 1);
+    // Find tasks within ACTIVE:unassigned group
+    const activeUnassignedIndex = rows.findIndex(r => r.type === 'group' && r.id === 'ACTIVE:unassigned');
+    const activeTasks = rows.slice(activeUnassignedIndex + 1);
 
-    // Last (and only) task in IN_PROGRESS:unassigned should have isLast=true
-    const lastInProgressTask = inProgressTasks[0];
-    expect(lastInProgressTask?.type === 'task' && lastInProgressTask.isLast).toBe(true);
+    // Last (and only) task in ACTIVE:unassigned should have isLast=true
+    const lastActiveTask = activeTasks[0];
+    expect(lastActiveTask?.type === 'task' && lastActiveTask.isLast).toBe(true);
   });
 
   it('should only include status groups that have tasks', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'COMPLETED' as TaskStatus, Priority.MEDIUM),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH),
+      createTask('t2', 'Task 2', 'CLOSED', Priority.MEDIUM),
     ];
 
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'IN_PROGRESS', 'COMPLETED']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'ACTIVE', 'CLOSED']));
 
     // Should have status groups + unassigned sub-groups
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
-    expect(statusGroupRows.length).toBe(2); // Only PENDING and COMPLETED, not IN_PROGRESS
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('PENDING');
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('COMPLETED');
+    expect(statusGroupRows.length).toBe(2); // Only NEW and CLOSED, not ACTIVE
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('NEW');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('CLOSED');
   });
 
   it('should set correct task count for each group', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'PENDING' as TaskStatus, Priority.MEDIUM),
-      createTask('t3', 'Task 3', 'PENDING' as TaskStatus, Priority.LOW),
-      createTask('t4', 'Task 4', 'IN_PROGRESS' as TaskStatus, Priority.HIGH),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH),
+      createTask('t2', 'Task 2', 'NEW', Priority.MEDIUM),
+      createTask('t3', 'Task 3', 'NEW', Priority.LOW),
+      createTask('t4', 'Task 4', 'ACTIVE', Priority.HIGH),
     ];
 
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'IN_PROGRESS']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'ACTIVE']));
 
     // Status groups should show total task count
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
@@ -464,69 +433,67 @@ describe('buildStatusGroupedRows', () => {
 
     // Unassigned sub-groups should also have correct counts
     const unassignedGroups = rows.filter((r) => r.type === 'group' && r.depth === 1);
-    expect(unassignedGroups[0]?.type === 'group' && unassignedGroups[0].taskCount).toBe(3); // PENDING:unassigned
-    expect(unassignedGroups[1]?.type === 'group' && unassignedGroups[1].taskCount).toBe(1); // IN_PROGRESS:unassigned
+    expect(unassignedGroups[0]?.type === 'group' && unassignedGroups[0].taskCount).toBe(3); // NEW:unassigned
+    expect(unassignedGroups[1]?.type === 'group' && unassignedGroups[1].taskCount).toBe(1); // ACTIVE:unassigned
   });
 
   it('should use display names for status labels', () => {
     const tasks: Task[] = [
-      createTask('t1', 'Task 1', 'PENDING' as TaskStatus, Priority.HIGH),
-      createTask('t2', 'Task 2', 'IN_PROGRESS' as TaskStatus, Priority.MEDIUM),
+      createTask('t1', 'Task 1', 'NEW', Priority.HIGH),
+      createTask('t2', 'Task 2', 'ACTIVE', Priority.MEDIUM),
     ];
 
-    const rows = buildStatusGroupedRows(tasks, [], new Set(['PENDING', 'IN_PROGRESS']));
+    const rows = buildStatusGroupedRows(tasks, [], new Set(['NEW', 'ACTIVE']));
 
     // Check status group labels
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].label).toBe('Pending');
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('In Progress');
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].label).toBe('New');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('Active');
   });
 
-  it('should include empty features in their mapped status bucket (status mode)', () => {
-    const completedFeature: FeatureWithTasks = {
-      ...createFeature('f-complete', 'Completed Feature'),
-      status: FeatureStatus.COMPLETED,
+  it('should include empty features in their status bucket', () => {
+    const closedFeature: FeatureWithTasks = {
+      ...createFeature('f-complete', 'Closed Feature'),
+      status: 'CLOSED',
     };
 
-    const rows = buildStatusGroupedRows([], [completedFeature], new Set(['COMPLETED']));
+    const rows = buildStatusGroupedRows([], [closedFeature], new Set(['CLOSED']));
 
-    const completedStatus = rows.find((r) => r.type === 'group' && r.depth === 0 && r.id === 'COMPLETED');
-    expect(completedStatus?.type).toBe('group');
-    expect(completedStatus?.type === 'group' && completedStatus.taskCount).toBe(0);
-    expect(completedStatus?.type === 'group' && completedStatus.expandable).toBe(true);
+    const closedStatus = rows.find((r) => r.type === 'group' && r.depth === 0 && r.id === 'CLOSED');
+    expect(closedStatus?.type).toBe('group');
+    expect(closedStatus?.type === 'group' && closedStatus.taskCount).toBe(0);
+    expect(closedStatus?.type === 'group' && closedStatus.expandable).toBe(true);
 
-    const completedFeatureRow = rows.find((r) => r.type === 'group' && r.depth === 1 && r.id === 'COMPLETED:f-complete');
-    expect(completedFeatureRow?.type).toBe('group');
-    expect(completedFeatureRow?.type === 'group' && completedFeatureRow.taskCount).toBe(0);
-    expect(completedFeatureRow?.type === 'group' && completedFeatureRow.expandable).toBe(false);
+    const closedFeatureRow = rows.find((r) => r.type === 'group' && r.depth === 1 && r.id === 'CLOSED:f-complete');
+    expect(closedFeatureRow?.type).toBe('group');
+    expect(closedFeatureRow?.type === 'group' && closedFeatureRow.taskCount).toBe(0);
+    expect(closedFeatureRow?.type === 'group' && closedFeatureRow.expandable).toBe(false);
   });
 });
 
 /**
- * Copy of FEATURE_STATUS_ORDER and buildFeatureStatusGroupedRows for testing
+ * Copy of FEATURE_STATUS_ORDER and buildFeatureStatusGroupedRows for testing (v2 pipeline)
  */
 const FEATURE_STATUS_ORDER: string[] = [
-  'DRAFT',
-  'PLANNING',
-  'IN_DEVELOPMENT',
-  'TESTING',
-  'VALIDATING',
-  'PENDING_REVIEW',
-  'BLOCKED',
-  'ON_HOLD',
-  'DEPLOYED',
-  'COMPLETED',
-  'ARCHIVED',
+  'NEW',
+  'ACTIVE',
+  'READY_TO_PROD',
+  'CLOSED',
+  'WILL_NOT_IMPLEMENT',
 ];
 
 const FEATURE_STATUS_DISPLAY_NAMES: Record<string, string> = {
-  ...STATUS_DISPLAY_NAMES,
-  DRAFT: 'Draft',
-  PLANNING: 'Planning',
-  IN_DEVELOPMENT: 'In Development',
-  VALIDATING: 'Validating',
-  PENDING_REVIEW: 'Pending Review',
-  ARCHIVED: 'Archived',
+  NEW: 'New',
+  ACTIVE: 'Active',
+  READY_TO_PROD: 'Ready to Prod',
+  CLOSED: 'Closed',
+  WILL_NOT_IMPLEMENT: 'Will Not Implement',
+};
+
+const PRIORITY_ORDER2: Record<Priority, number> = {
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
 };
 
 function buildFeatureStatusGroupedRows(
@@ -585,7 +552,7 @@ function buildFeatureStatusGroupedRows(
 
         if (featureExpanded) {
           const sortedTasks = [...feature.tasks].sort((a, b) => {
-            const priorityDiff = PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority];
+            const priorityDiff = PRIORITY_ORDER2[b.priority] - PRIORITY_ORDER2[a.priority];
             if (priorityDiff !== 0) return priorityDiff;
             return a.title.localeCompare(b.title);
           });
@@ -610,7 +577,7 @@ describe('buildFeatureStatusGroupedRows', () => {
   const createTask = (
     id: string,
     title: string,
-    status: TaskStatus,
+    status: string,
     priority: Priority,
     featureId?: string
   ): Task => ({
@@ -620,8 +587,9 @@ describe('buildFeatureStatusGroupedRows', () => {
     status,
     priority,
     complexity: 5,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date(),
     modifiedAt: new Date(),
     featureId,
@@ -630,7 +598,7 @@ describe('buildFeatureStatusGroupedRows', () => {
   const createFeature = (
     id: string,
     name: string,
-    status: FeatureStatus = FeatureStatus.IN_DEVELOPMENT,
+    status: string = 'ACTIVE',
     tasks: Task[] = []
   ): FeatureWithTasks => ({
     id,
@@ -638,6 +606,8 @@ describe('buildFeatureStatusGroupedRows', () => {
     summary: `Summary for ${name}`,
     status,
     priority: Priority.MEDIUM,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
     createdAt: new Date(),
     modifiedAt: new Date(),
@@ -646,63 +616,63 @@ describe('buildFeatureStatusGroupedRows', () => {
 
   it('should group features by their feature status in the correct order', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.COMPLETED),
-      createFeature('f2', 'Feature 2', FeatureStatus.DRAFT),
-      createFeature('f3', 'Feature 3', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f1', 'Feature 1', 'CLOSED'),
+      createFeature('f2', 'Feature 2', 'NEW'),
+      createFeature('f3', 'Feature 3', 'ACTIVE'),
     ];
 
     const rows = buildFeatureStatusGroupedRows(features, new Set());
 
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
     expect(statusGroupRows.length).toBe(3);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:DRAFT');
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('fs:IN_DEVELOPMENT');
-    expect(statusGroupRows[2]?.type === 'group' && statusGroupRows[2].id).toBe('fs:COMPLETED');
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:NEW');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].id).toBe('fs:ACTIVE');
+    expect(statusGroupRows[2]?.type === 'group' && statusGroupRows[2].id).toBe('fs:CLOSED');
   });
 
   it('should use display names for feature status labels', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT),
-      createFeature('f2', 'Feature 2', FeatureStatus.PENDING_REVIEW),
+      createFeature('f1', 'Feature 1', 'ACTIVE'),
+      createFeature('f2', 'Feature 2', 'READY_TO_PROD'),
     ];
 
     const rows = buildFeatureStatusGroupedRows(features, new Set());
 
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].label).toBe('In Development');
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('Pending Review');
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].label).toBe('Active');
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].label).toBe('Ready to Prod');
   });
 
   it('should skip empty status groups', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.DRAFT),
+      createFeature('f1', 'Feature 1', 'NEW'),
     ];
 
     const rows = buildFeatureStatusGroupedRows(features, new Set());
 
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
     expect(statusGroupRows.length).toBe(1);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:DRAFT');
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].id).toBe('fs:NEW');
   });
 
   it('should show feature count in taskCount field of status group', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT),
-      createFeature('f2', 'Feature 2', FeatureStatus.IN_DEVELOPMENT),
-      createFeature('f3', 'Feature 3', FeatureStatus.COMPLETED),
+      createFeature('f1', 'Feature 1', 'ACTIVE'),
+      createFeature('f2', 'Feature 2', 'ACTIVE'),
+      createFeature('f3', 'Feature 3', 'CLOSED'),
     ];
 
     const rows = buildFeatureStatusGroupedRows(features, new Set());
 
     const statusGroupRows = rows.filter((r) => r.type === 'group' && r.depth === 0);
-    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].taskCount).toBe(2); // IN_DEVELOPMENT
-    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].taskCount).toBe(1); // COMPLETED
+    expect(statusGroupRows[0]?.type === 'group' && statusGroupRows[0].taskCount).toBe(2); // ACTIVE
+    expect(statusGroupRows[1]?.type === 'group' && statusGroupRows[1].taskCount).toBe(1); // CLOSED
   });
 
   it('should show features when status group is expanded', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature Alpha', FeatureStatus.IN_DEVELOPMENT),
-      createFeature('f2', 'Feature Beta', FeatureStatus.IN_DEVELOPMENT),
+      createFeature('f1', 'Feature Alpha', 'ACTIVE'),
+      createFeature('f2', 'Feature Beta', 'ACTIVE'),
     ];
 
     // Collapsed
@@ -710,7 +680,7 @@ describe('buildFeatureStatusGroupedRows', () => {
     expect(collapsedRows.length).toBe(1); // Only status group
 
     // Expanded
-    const expandedRows = buildFeatureStatusGroupedRows(features, new Set(['fs:IN_DEVELOPMENT']));
+    const expandedRows = buildFeatureStatusGroupedRows(features, new Set(['fs:ACTIVE']));
     expect(expandedRows.length).toBe(3); // Status group + 2 features
     expect(expandedRows[1]?.type).toBe('group');
     expect(expandedRows[1]?.type === 'group' && expandedRows[1].depth).toBe(1);
@@ -720,16 +690,16 @@ describe('buildFeatureStatusGroupedRows', () => {
 
   it('should show tasks when feature is expanded', () => {
     const tasks = [
-      createTask('t1', 'High Task', 'IN_PROGRESS' as TaskStatus, Priority.HIGH, 'f1'),
-      createTask('t2', 'Low Task', 'IN_PROGRESS' as TaskStatus, Priority.LOW, 'f1'),
+      createTask('t1', 'High Task', 'ACTIVE', Priority.HIGH, 'f1'),
+      createTask('t2', 'Low Task', 'ACTIVE', Priority.LOW, 'f1'),
     ];
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.IN_DEVELOPMENT, tasks),
+      createFeature('f1', 'Feature 1', 'ACTIVE', tasks),
     ];
 
     const rows = buildFeatureStatusGroupedRows(
       features,
-      new Set(['fs:IN_DEVELOPMENT', 'fs:IN_DEVELOPMENT:f1'])
+      new Set(['fs:ACTIVE', 'fs:ACTIVE:f1'])
     );
 
     // Status group + feature group + 2 tasks
@@ -746,10 +716,10 @@ describe('buildFeatureStatusGroupedRows', () => {
 
   it('should mark features without tasks as not expandable', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Empty Feature', FeatureStatus.DRAFT, []),
+      createFeature('f1', 'Empty Feature', 'NEW', []),
     ];
 
-    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:DRAFT']));
+    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:NEW']));
 
     const featureRow = rows.find((r) => r.type === 'group' && r.depth === 1);
     expect(featureRow?.type === 'group' && featureRow.expandable).toBe(false);
@@ -757,13 +727,13 @@ describe('buildFeatureStatusGroupedRows', () => {
 
   it('should set featureId on feature group rows', () => {
     const features: FeatureWithTasks[] = [
-      createFeature('f1', 'Feature 1', FeatureStatus.PLANNING),
+      createFeature('f1', 'Feature 1', 'NEW'),
     ];
 
-    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:PLANNING']));
+    const rows = buildFeatureStatusGroupedRows(features, new Set(['fs:NEW']));
 
     const featureRow = rows.find((r) => r.type === 'group' && r.depth === 1);
     expect(featureRow?.type === 'group' && featureRow.featureId).toBe('f1');
-    expect(featureRow?.type === 'group' && featureRow.id).toBe('fs:PLANNING:f1');
+    expect(featureRow?.type === 'group' && featureRow.id).toBe('fs:NEW:f1');
   });
 });

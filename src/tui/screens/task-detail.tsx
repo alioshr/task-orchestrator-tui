@@ -9,7 +9,8 @@ import { SectionList } from '../components/section-list';
 import { DependencyList } from '../components/dependency-list';
 import { StatusActions } from '../components/status-actions';
 import { timeAgo } from '../../ui/lib/format';
-import type { TaskStatus, Priority } from '@allpepper/task-orchestrator';
+import type { Priority } from '@allpepper/task-orchestrator';
+import type { WorkflowState } from '../../ui/adapters/types';
 import { FormDialog } from '../components/form-dialog';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import { ErrorMessage } from '../components/error-message';
@@ -27,18 +28,18 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
   const { adapter } = useAdapter();
   const { theme } = useTheme();
   const [activePanel, setActivePanel] = useState<ActivePanel>('sections');
-  const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
   const [mode, setMode] = useState<'idle' | 'edit' | 'delete'>('idle');
 
-  // Fetch allowed transitions when task loads
+  // Fetch workflow state when task loads
   useEffect(() => {
     if (task) {
-      adapter.getAllowedTransitions('TASK', task.status).then(result => {
+      adapter.getWorkflowState('task', task.id).then(result => {
         if (result.success) {
-          setAllowedTransitions(result.data);
+          setWorkflowState(result.data);
         }
       });
     }
@@ -61,11 +62,9 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
       refresh();
     }
     if (key.tab) {
-      // Cycle through panels (skip sections if none exist)
       setActivePanel(current => {
         if (current === 'sections') return 'dependencies';
         if (current === 'dependencies') return 'status';
-        // From status, go to sections only if they exist
         return sections.length > 0 ? 'sections' : 'dependencies';
       });
     }
@@ -77,22 +76,40 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
     }
   });
 
-  // Handle status change
-  const handleStatusChange = async (newStatus: string) => {
+  // Pipeline operations
+  const handleAdvance = async () => {
     if (!task) return;
-
     setIsUpdatingStatus(true);
     setStatusError(null);
-
-    const result = await adapter.setTaskStatus(taskId, newStatus as TaskStatus, task.version);
-
-    if (result.success) {
-      // Refresh task data to get updated version
-      await refresh();
-    } else {
+    const result = await adapter.advance('task', taskId, task.version);
+    if (!result.success) {
       setStatusError(result.error);
     }
+    await refresh();
+    setIsUpdatingStatus(false);
+  };
 
+  const handleRevert = async () => {
+    if (!task) return;
+    setIsUpdatingStatus(true);
+    setStatusError(null);
+    const result = await adapter.revert('task', taskId, task.version);
+    if (!result.success) {
+      setStatusError(result.error);
+    }
+    await refresh();
+    setIsUpdatingStatus(false);
+  };
+
+  const handleTerminate = async () => {
+    if (!task) return;
+    setIsUpdatingStatus(true);
+    setStatusError(null);
+    const result = await adapter.terminate('task', taskId, task.version);
+    if (!result.success) {
+      setStatusError(result.error);
+    }
+    await refresh();
     setIsUpdatingStatus(false);
   };
 
@@ -127,6 +144,9 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <Text bold>{task.title}</Text>
         <Text> </Text>
         <StatusBadge status={task.status} />
+        {task.blockedBy.length > 0 && (
+          <Text color={theme.colors.blocked}> [BLOCKED]</Text>
+        )}
       </Box>
 
       {/* Divider */}
@@ -183,7 +203,7 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         <Text dimColor>{'─'.repeat(40)}</Text>
       </Box>
 
-      {/* Sections Panel - only show if there are sections */}
+      {/* Sections Panel */}
       {sections.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           <Box marginBottom={0}>
@@ -223,10 +243,15 @@ export function TaskDetail({ taskId, onSelectTask, onBack }: TaskDetailProps) {
         </Box>
         <StatusActions
           currentStatus={task.status}
-          allowedTransitions={allowedTransitions}
+          nextStatus={workflowState?.nextStatus ?? null}
+          prevStatus={workflowState?.prevStatus ?? null}
+          isBlocked={task.blockedBy.length > 0}
+          isTerminal={workflowState?.isTerminal ?? false}
           isActive={activePanel === 'status'}
           loading={isUpdatingStatus}
-          onTransition={handleStatusChange}
+          onAdvance={handleAdvance}
+          onRevert={handleRevert}
+          onTerminate={handleTerminate}
         />
         {statusError && (
           <Box marginTop={1}>

@@ -4,7 +4,6 @@ import { render } from 'ink-testing-library';
 import { StatusActions, type StatusActionsProps } from '../status-actions';
 import { ThemeProvider } from '../../../ui/context/theme-context';
 
-// Helper to render with ThemeProvider
 function renderWithTheme(props: StatusActionsProps) {
   return render(
     <ThemeProvider>
@@ -14,195 +13,128 @@ function renderWithTheme(props: StatusActionsProps) {
 }
 
 describe('StatusActions', () => {
-  test('should render current status with StatusBadge', () => {
-    const onTransition = mock(() => {});
+  test('should render current status', () => {
     const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: 'NEW',
+      onAdvance: mock(() => {}),
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
     });
 
     const output = lastFrame();
     expect(output).toContain('Status:');
-    expect(output).toContain('In Progress'); // StatusBadge should format it
   });
 
-  test('should display "No transitions available" when no transitions', () => {
-    const onTransition = mock(() => {});
+  test('should show advance and revert actions when available', () => {
     const { lastFrame } = renderWithTheme({
-      currentStatus: 'COMPLETED',
-      allowedTransitions: [],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: 'NEW',
+      onAdvance: mock(() => {}),
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
     });
 
     const output = lastFrame();
-    expect(output).toContain('No transitions available');
+    expect(output).toContain('Advance to TO_BE_TESTED');
+    expect(output).toContain('Revert to NEW');
+    expect(output).toContain('Will Not Implement');
   });
 
-  test('should display available transitions', () => {
-    const onTransition = mock(() => {});
+  test('should show no actions when terminal', () => {
     const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED', 'ON_HOLD'],
-      onTransition,
+      currentStatus: 'CLOSED',
+      nextStatus: null,
+      prevStatus: null,
+      isTerminal: true,
+      onAdvance: mock(() => {}),
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
     });
 
     const output = lastFrame();
-    expect(output).toContain('Change to:');
-    expect(output).toContain('COMPLETED');
-    expect(output).toContain('BLOCKED');
-    expect(output).toContain('ON_HOLD');
+    expect(output).toContain('No actions available');
   });
 
-  test('should show arrow prefix for first transition option', () => {
-    const onTransition = mock(() => {});
+  test('should not show advance when blocked', () => {
     const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: 'NEW',
+      isBlocked: true,
+      onAdvance: mock(() => {}),
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
     });
 
     const output = lastFrame();
-    // Check for both vertical bar and COMPLETED separately (ANSI codes may be present)
-    expect(output).toContain('▎');
-    expect(output).toContain('COMPLETED');
+    expect(output).not.toContain('Advance');
+    expect(output).toContain('[BLOCKED]');
+    expect(output).toContain('Revert to NEW');
   });
 
   test('should show loading indicator when loading=true', () => {
-    const onTransition = mock(() => {});
     const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: 'NEW',
+      onAdvance: mock(() => {}),
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
       loading: true,
     });
 
     const output = lastFrame();
     expect(output).toContain('Loading...');
-    expect(output).not.toContain('Change to:');
   });
 
-  test('should show first transition with arrow by default', () => {
-    const onTransition = mock(() => {});
-    const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED', 'ON_HOLD'],
-      onTransition,
-    });
-
-    // Initially first item is selected
-    const output = lastFrame();
-    // Check for both vertical bar and COMPLETED separately (ANSI codes may be present)
-    expect(output).toContain('▎');
-    expect(output).toContain('COMPLETED');
-  });
-
-  test('should call onTransition with first item when Enter pressed without navigation', () => {
-    const onTransition = mock(() => {});
+  test('should call onAdvance when advance action is triggered', () => {
+    const onAdvance = mock(() => {});
     const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED', 'ON_HOLD'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: null,
+      onAdvance,
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
     });
 
-    // Press Enter without navigating (should select first item)
+    // Press Enter (advance is first action)
     stdin.write('\r');
-    expect(onTransition).toHaveBeenCalledWith('COMPLETED');
-  });
-
-  test('should handle Enter key to trigger transition', () => {
-    const onTransition = mock(() => {});
-    const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
-    });
-
-    // Press Enter to trigger transition
-    stdin.write('\r');
-    expect(onTransition).toHaveBeenCalledTimes(1);
-  });
-
-  test('should call onTransition with correct default status', () => {
-    const onTransition = mock(() => {});
-    const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
-    });
-
-    // Press Enter (should select first item by default)
-    stdin.write('\r');
-    expect(onTransition).toHaveBeenCalledWith('COMPLETED');
-  });
-
-  test('should accept keyboard input when active', () => {
-    const onTransition = mock(() => {});
-    const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
-      isActive: true,
-    });
-
-    // Should respond to Enter
-    stdin.write('\r');
-    expect(onTransition).toHaveBeenCalled();
+    expect(onAdvance).toHaveBeenCalledTimes(1);
   });
 
   test('should not respond to input when isActive=false', () => {
-    const onTransition = mock(() => {});
+    const onAdvance = mock(() => {});
     const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: null,
+      onAdvance,
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
       isActive: false,
     });
 
-    // Try to select with Enter
     stdin.write('\r');
-    expect(onTransition).not.toHaveBeenCalled();
+    expect(onAdvance).not.toHaveBeenCalled();
   });
 
   test('should not respond to input when loading=true', () => {
-    const onTransition = mock(() => {});
+    const onAdvance = mock(() => {});
     const { stdin } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
+      currentStatus: 'ACTIVE',
+      nextStatus: 'TO_BE_TESTED',
+      prevStatus: null,
+      onAdvance,
+      onRevert: mock(() => {}),
+      onTerminate: mock(() => {}),
       loading: true,
     });
 
-    // Try to select with Enter
     stdin.write('\r');
-    expect(onTransition).not.toHaveBeenCalled();
-  });
-
-  test('should not respond to input when no transitions available', () => {
-    const onTransition = mock(() => {});
-    const { stdin } = renderWithTheme({
-      currentStatus: 'COMPLETED',
-      allowedTransitions: [],
-      onTransition,
-    });
-
-    // Try to select
-    stdin.write('\r');
-
-    expect(onTransition).not.toHaveBeenCalled();
-  });
-
-  test('should display all transitions in list format', () => {
-    const onTransition = mock(() => {});
-    const { lastFrame } = renderWithTheme({
-      currentStatus: 'IN_PROGRESS',
-      allowedTransitions: ['COMPLETED', 'BLOCKED'],
-      onTransition,
-    });
-
-    const output = lastFrame();
-    // Both transitions should be visible
-    expect(output).toContain('COMPLETED');
-    expect(output).toContain('BLOCKED');
+    expect(onAdvance).not.toHaveBeenCalled();
   });
 });

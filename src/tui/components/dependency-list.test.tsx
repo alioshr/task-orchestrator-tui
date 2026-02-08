@@ -4,7 +4,7 @@ import { render } from 'ink-testing-library';
 import { DependencyList } from './dependency-list';
 import type { Task } from '@allpepper/task-orchestrator';
 import type { DependencyInfo } from '../../ui/lib/types';
-import { TaskStatus, Priority, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import { ThemeProvider } from '../../ui/context/theme-context';
 
 // Helper to wrap component with ThemeProvider
@@ -17,11 +17,12 @@ describe('DependencyList', () => {
     id: 'task-1',
     title: 'Task One',
     summary: 'Summary one',
-    status: TaskStatus.BLOCKED,
+    status: 'ACTIVE',
     priority: Priority.HIGH,
     complexity: 3,
+    blockedBy: ['task-99'],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date(),
     modifiedAt: new Date(),
   };
@@ -30,11 +31,12 @@ describe('DependencyList', () => {
     id: 'task-2',
     title: 'Task Two',
     summary: 'Summary two',
-    status: TaskStatus.IN_PROGRESS,
+    status: 'ACTIVE',
     priority: Priority.MEDIUM,
     complexity: 2,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date(),
     modifiedAt: new Date(),
   };
@@ -43,11 +45,12 @@ describe('DependencyList', () => {
     id: 'task-3',
     title: 'Task Three',
     summary: 'Summary three',
-    status: TaskStatus.PENDING,
+    status: 'NEW',
     priority: Priority.LOW,
     complexity: 1,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date(),
     modifiedAt: new Date(),
   };

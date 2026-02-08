@@ -113,7 +113,6 @@ export interface ProjectOverview {
     id: string;
     name: string;
     summary: string;
-    status: string;
   };
   taskCounts: {
     total: number;

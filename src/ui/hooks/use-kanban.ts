@@ -5,14 +5,14 @@ import type { BoardColumn } from '../lib/types';
 import { useBoardData } from './use-data';
 
 /**
- * Standard Kanban column definitions
+ * v2 Kanban column definitions (pipeline states)
  */
 const KANBAN_STATUSES = [
-  { id: 'pending', title: 'Pending', status: 'PENDING' },
-  { id: 'in-progress', title: 'In Progress', status: 'IN_PROGRESS' },
-  { id: 'in-review', title: 'In Review', status: 'IN_REVIEW' },
-  { id: 'blocked', title: 'Blocked', status: 'BLOCKED' },
-  { id: 'completed', title: 'Completed', status: 'COMPLETED' },
+  { id: 'new', title: 'New', status: 'NEW' },
+  { id: 'active', title: 'Active', status: 'ACTIVE' },
+  { id: 'to-be-tested', title: 'To Be Tested', status: 'TO_BE_TESTED' },
+  { id: 'ready-to-prod', title: 'Ready to Prod', status: 'READY_TO_PROD' },
+  { id: 'closed', title: 'Closed', status: 'CLOSED' },
 ] as const;
 
 interface UseKanbanReturn {
@@ -24,13 +24,9 @@ interface UseKanbanReturn {
 }
 
 /**
- * Hook for managing Kanban board state
- *
- * Fetches tasks for a project and organizes them into Kanban columns by status.
- * Provides functionality to move tasks between columns with optimistic updates.
- *
- * @param projectId - The project ID to fetch tasks for
- * @returns Kanban board state and operations
+ * Hook for managing Kanban board state.
+ * In v2, tasks move through the pipeline via advance/revert.
+ * The moveTask function uses advance for forward moves and revert for backward moves.
  */
 export function useKanban(projectId: string): UseKanbanReturn {
   const { adapter } = useAdapter();
@@ -46,15 +42,10 @@ export function useKanban(projectId: string): UseKanbanReturn {
   ), [columnsByStatus]);
 
   /**
-   * Move a task to a new status
-   *
-   * @param taskId - ID of the task to move
-   * @param newStatus - New status to assign
-   * @returns true if successful, false otherwise
+   * Move a task to a new status via advance/revert pipeline operations
    */
   const moveTask = useCallback(
     async (taskId: string, newStatus: string): Promise<boolean> => {
-      // Find the task in current columns
       let task: Task | undefined;
       for (const column of columns) {
         task = column.tasks.find((t) => t.id === taskId);
@@ -62,24 +53,41 @@ export function useKanban(projectId: string): UseKanbanReturn {
       }
 
       if (!task) {
-        // Board may be stale; ask the caller to refresh and retry.
         refresh();
         return false;
       }
 
       try {
-        // Call adapter to update task status
-        const result = await adapter.setTaskStatus(taskId, newStatus as any, task.version);
+        // Determine direction based on pipeline position
+        const currentIdx = KANBAN_STATUSES.findIndex(s => s.status === task!.status);
+        const targetIdx = KANBAN_STATUSES.findIndex(s => s.status === newStatus);
 
-        if (result.success) {
-          // Refresh the board on success
-          refresh();
-          return true;
-        } else {
+        if (currentIdx === -1 || targetIdx === -1) {
           refresh();
           return false;
         }
+
+        // Step through the pipeline one step at a time
+        let currentVersion = task.version;
+        const direction = targetIdx > currentIdx ? 'advance' : 'revert';
+        const steps = Math.abs(targetIdx - currentIdx);
+
+        for (let i = 0; i < steps; i++) {
+          const result = direction === 'advance'
+            ? await adapter.advance('task', taskId, currentVersion)
+            : await adapter.revert('task', taskId, currentVersion);
+
+          if (!result.success) {
+            refresh();
+            return false;
+          }
+          currentVersion = result.data.entity.version;
+        }
+
+        refresh();
+        return true;
       } catch (_err) {
+        refresh();
         return false;
       }
     },

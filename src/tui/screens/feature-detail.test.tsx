@@ -5,7 +5,7 @@ import { FeatureDetail } from './feature-detail';
 import { ThemeProvider } from '../../ui/context/theme-context';
 import { AdapterProvider } from '../../ui/context/adapter-context';
 import type { DataAdapter } from '../../ui/adapters/types';
-import { FeatureStatus, TaskStatus, Priority, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import type { Feature, Task } from '@allpepper/task-orchestrator';
 
 describe('FeatureDetail', () => {
@@ -15,8 +15,10 @@ describe('FeatureDetail', () => {
     name: 'Test Feature',
     summary: 'This is a test feature summary',
     description: 'This is a detailed description of the test feature',
-    status: FeatureStatus.IN_DEVELOPMENT,
+    status: 'ACTIVE',
     priority: Priority.HIGH,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
     createdAt: new Date('2024-01-01'),
     modifiedAt: new Date('2024-01-15'),
@@ -28,11 +30,12 @@ describe('FeatureDetail', () => {
       id: 'task-1',
       title: 'Task A',
       summary: 'Summary A',
-      status: TaskStatus.PENDING,
+      status: 'NEW',
       priority: Priority.HIGH,
       complexity: 5,
+      blockedBy: [],
+      relatedTo: [],
       version: 1,
-      lockStatus: LockStatus.UNLOCKED,
       createdAt: new Date(),
       modifiedAt: new Date(),
     },
@@ -40,11 +43,12 @@ describe('FeatureDetail', () => {
       id: 'task-2',
       title: 'Task B',
       summary: 'Summary B',
-      status: TaskStatus.COMPLETED,
+      status: 'CLOSED',
       priority: Priority.MEDIUM,
       complexity: 3,
+      blockedBy: [],
+      relatedTo: [],
       version: 1,
-      lockStatus: LockStatus.UNLOCKED,
       createdAt: new Date(),
       modifiedAt: new Date(),
     },
@@ -76,14 +80,15 @@ describe('FeatureDetail', () => {
       createTask: mock(async () => ({ success: true, data: {} as any })),
       updateTask: mock(async () => ({ success: true, data: {} as any })),
       deleteTask: mock(async () => ({ success: true, data: true })),
-      setTaskStatus: mock(async () => ({ success: true, data: {} as any })),
-      setProjectStatus: mock(async () => ({ success: true, data: {} as any })),
-      setFeatureStatus: mock(async () => ({ success: true, data: {} as any })),
+      advance: mock(async () => ({ success: true, data: {} as any })),
+      revert: mock(async () => ({ success: true, data: {} as any })),
+      terminate: mock(async () => ({ success: true, data: {} as any })),
+      getWorkflowState: mock(async () => ({ success: true, data: {} as any })),
+      getAllowedTransitions: mock(async () => ({ success: true, data: [] })),
       getSections: mock(async () => ({ success: true, data: [] })),
       getDependencies: mock(async () => ({ success: true, data: { blockedBy: [], blocks: [] } })),
       getBlockedTasks: mock(async () => ({ success: true, data: [] })),
       getNextTask: mock(async () => ({ success: true, data: null })),
-      getAllowedTransitions: mock(async () => ({ success: true, data: [] })),
       search: mock(async () => ({ success: true, data: { projects: [], features: [], tasks: [] } })),
     } as DataAdapter;
   });

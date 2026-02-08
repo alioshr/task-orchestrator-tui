@@ -3,7 +3,7 @@ import { describe, test, expect } from 'bun:test';
 import { render } from 'ink-testing-library';
 import { KanbanCard } from '../kanban-card';
 import { ThemeProvider } from '../../../ui/context/theme-context';
-import { Priority, TaskStatus, LockStatus } from '@allpepper/task-orchestrator';
+import { Priority } from '@allpepper/task-orchestrator';
 import type { BoardTask } from '../../../ui/lib/types';
 
 // Helper to render with ThemeProvider
@@ -18,11 +18,12 @@ function createMockTask(overrides: Partial<BoardTask> = {}): BoardTask {
     title: 'Test Task',
     summary: 'Test summary',
     description: 'Test description',
-    status: TaskStatus.IN_PROGRESS,
+    status: 'ACTIVE',
     priority: Priority.MEDIUM,
     complexity: 3,
+    blockedBy: [],
+    relatedTo: [],
     version: 1,
-    lockStatus: LockStatus.UNLOCKED,
     createdAt: new Date('2024-01-01'),
     modifiedAt: new Date('2024-01-01'),
     tags: [],
