@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/alioshr/task-orchestrator-tui/compare/v2.0.0...v2.0.1) (2026-02-08)
+
+
+### Bug Fixes
+
+* decouple TUI from orchestrator db internals ([71ca882](https://github.com/alioshr/task-orchestrator-tui/commit/71ca8822c6eef94a995471d7b8f5af6e4a7b7051))
+
 # [2.0.0](https://github.com/alioshr/task-orchestrator-tui/compare/v1.3.0...v2.0.0) (2026-02-08)
 
 
