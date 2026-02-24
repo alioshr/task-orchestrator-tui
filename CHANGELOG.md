@@ -1,3 +1,15 @@
+# [2.1.0](https://github.com/alioshr/task-orchestrator-tui/compare/v2.0.1...v2.1.0) (2026-02-24)
+
+
+### Bug Fixes
+
+* **tui:** add missing form-active context used by app ([5846b4c](https://github.com/alioshr/task-orchestrator-tui/commit/5846b4ce76175e08187dc068b439acbbc043a6c5))
+
+
+### Features
+
+* **tui:** add MCP HTTP adapter and runtime transport selection ([415b4a7](https://github.com/alioshr/task-orchestrator-tui/commit/415b4a700c93d65ac98c07511d15457b13ed1c54))
+
 ## [2.0.1](https://github.com/alioshr/task-orchestrator-tui/compare/v2.0.0...v2.0.1) (2026-02-08)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@allpepper/task-orchestrator-tui",
-  "version": "3.1.0",
+  "version": "2.1.0",
   "description": "Terminal UI for task orchestration - tree views and task management",
   "type": "module",
   "bin": {
