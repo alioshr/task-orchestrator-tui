@@ -54,7 +54,7 @@ async function fetchOrchestratorStatus(statusUrl: string): Promise<OrchestratorS
 function getDiscoveryPortsFromEnv(env: Record<string, string | undefined>): number[] {
   const raw = env.TASKS_MCP_DISCOVERY_PORTS;
   if (!raw) {
-    return [3100, 3101, 3900];
+    return [3100, 3101, 3900, 3000];
   }
 
   const ports = raw
@@ -62,7 +62,7 @@ function getDiscoveryPortsFromEnv(env: Record<string, string | undefined>): numb
     .map((value) => Number.parseInt(value.trim(), 10))
     .filter((value) => Number.isInteger(value) && value > 0 && value < 65536);
 
-  return ports.length > 0 ? ports : [3100, 3101, 3900];
+  return ports.length > 0 ? ports : [3100, 3101, 3900, 3000];
 }
 
 async function resolveMcpUrl(
@@ -96,6 +96,12 @@ async function resolveMcpUrl(
 
     if (running && discoveredMcpUrl && (await canReachMcp(discoveredMcpUrl))) {
       return discoveredMcpUrl;
+    }
+
+    // Fallback: if /status is reachable but metadata is stale, try /mcp on same origin.
+    const sameOriginMcpUrl = statusUrl.replace(/\/status$/, '/mcp');
+    if (await canReachMcp(sameOriginMcpUrl)) {
+      return sameOriginMcpUrl;
     }
   }
 
