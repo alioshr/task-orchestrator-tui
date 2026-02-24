@@ -5,6 +5,20 @@
 
 * **tui:** add missing form-active context used by app ([5846b4c](https://github.com/alioshr/task-orchestrator-tui/commit/5846b4ce76175e08187dc068b439acbbc043a6c5))
 * **tui:** auto-start local MCP server when endpoint is unavailable ([abb1206](https://github.com/alioshr/task-orchestrator-tui/commit/abb1206b5913091813faa0e11e65b0acf11cc4e7))
+* **tui:** harden MCP date parsing and require explicit server ([b5bea26](https://github.com/alioshr/task-orchestrator-tui/commit/b5bea26e3417bc89e88ba3a1697073a03832c4b5))
+
+
+### Features
+
+* **tui:** add MCP HTTP adapter and runtime transport selection ([415b4a7](https://github.com/alioshr/task-orchestrator-tui/commit/415b4a700c93d65ac98c07511d15457b13ed1c54))
+
+# [2.1.0](https://github.com/alioshr/task-orchestrator-tui/compare/v2.0.1...v2.1.0) (2026-02-24)
+
+
+### Bug Fixes
+
+* **tui:** add missing form-active context used by app ([5846b4c](https://github.com/alioshr/task-orchestrator-tui/commit/5846b4ce76175e08187dc068b439acbbc043a6c5))
+* **tui:** auto-start local MCP server when endpoint is unavailable ([abb1206](https://github.com/alioshr/task-orchestrator-tui/commit/abb1206b5913091813faa0e11e65b0acf11cc4e7))
 
 
 ### Features
