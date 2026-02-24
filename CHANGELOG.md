@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/alioshr/task-orchestrator-tui/compare/v2.1.0...v2.1.1) (2026-02-24)
+
+
+### Bug Fixes
+
+* **tui:** add missing form-active context used by app ([a502eb8](https://github.com/alioshr/task-orchestrator-tui/commit/a502eb88c30bb060c916336f62bc3a62d6e73186))
+
 # [2.1.0](https://github.com/alioshr/task-orchestrator-tui/compare/v2.0.1...v2.1.0) (2026-02-24)
 
 
