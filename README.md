@@ -50,6 +50,7 @@ The TUI uses MCP HTTP transport for all data operations.
 Environment variables:
 
 - `TASKS_MCP_URL`: MCP endpoint URL, default `http://127.0.0.1:3100/mcp`
+- `TASKS_AUTO_START_MCP`: set to `0` or `false` to disable local MCP auto-start
 
 Examples:
 
@@ -60,6 +61,8 @@ bunx @allpepper/task-orchestrator --http
 # Run TUI against MCP HTTP
 TASKS_MCP_URL=http://127.0.0.1:3100/mcp bun run tui
 ```
+
+When `TASKS_MCP_URL` points to `localhost` or `127.0.0.1`, the TUI will try to auto-start the MCP server if it is not already running.
 
 ## Development
 
