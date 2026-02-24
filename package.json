@@ -4,10 +4,11 @@
   "description": "Terminal UI for task orchestration - tree views and task management",
   "type": "module",
   "bin": {
-    "tasks": "src/tui/index.tsx"
+    "tasks": "bin/tasks.js"
   },
   "files": [
     "src",
+    "bin",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
     "!src/**/__tests__"
