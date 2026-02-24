@@ -83,8 +83,8 @@ export function EntityTable<T>({
         <Box width={2} marginRight={1}>
           <Text> </Text>
         </Box>
-        {columns.map((column) => (
-          <Box key={String(column.key)} width={column.width} marginRight={1}>
+        {columns.map((column, columnIndex) => (
+          <Box key={`header-${String(column.key)}-${columnIndex}`} width={column.width} marginRight={1}>
             <Text bold dimColor>
               {column.label}
             </Text>
@@ -95,7 +95,7 @@ export function EntityTable<T>({
       {/* Data Rows */}
       {data.map((row, rowIndex) => {
         const isSelected = rowIndex === selectedIndex;
-        const rowKey = rowKeyFn(row, rowIndex);
+        const rowKey = `${rowKeyFn(row, rowIndex)}-${rowIndex}`;
 
         return (
           <Box key={rowKey}>

@@ -46,6 +46,15 @@ describe('format utilities', () => {
       const date = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
       expect(timeAgo(date)).toBe('1y ago');
     });
+
+    test('accepts ISO date strings', () => {
+      const date = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      expect(timeAgo(date)).toBe('5m ago');
+    });
+
+    test('returns unknown for invalid date values', () => {
+      expect(timeAgo('not-a-date')).toBe('unknown');
+    });
   });
 
   describe('truncateId', () => {

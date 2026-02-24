@@ -50,6 +50,7 @@ interface ToolCallResult {
 }
 
 const EXIT_STATE = 'WILL_NOT_IMPLEMENT';
+const DATE_FIELDS = new Set(['createdAt', 'modifiedAt']);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -57,6 +58,28 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function uniqueIds(ids: string[]): string[] {
   return [...new Set(ids)];
+}
+
+function reviveDates(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(reviveDates);
+  }
+
+  if (!isObject(value)) {
+    return value;
+  }
+
+  const output: Record<string, unknown> = {};
+  for (const [key, current] of Object.entries(value)) {
+    if (DATE_FIELDS.has(key) && typeof current === 'string') {
+      const parsed = new Date(current);
+      output[key] = Number.isNaN(parsed.getTime()) ? current : parsed;
+      continue;
+    }
+    output[key] = reviveDates(current);
+  }
+
+  return output;
 }
 
 /**
@@ -184,7 +207,7 @@ export class McpHttpAdapter implements DataAdapter {
       if (structuredEnvelope.success) {
         return {
           success: true,
-          data: structuredEnvelope.data.data as T,
+          data: reviveDates(structuredEnvelope.data.data) as T,
         };
       }
 
@@ -213,7 +236,7 @@ export class McpHttpAdapter implements DataAdapter {
 
       return {
         success: true,
-        data: parsedEnvelope.data.data as T,
+        data: reviveDates(parsedEnvelope.data.data) as T,
       };
     } catch (error) {
       return {

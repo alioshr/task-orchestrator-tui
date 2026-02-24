@@ -2,9 +2,14 @@
  * Format a date as a relative time string
  * @example timeAgo(new Date(Date.now() - 3600000)) // "1h ago"
  */
-export function timeAgo(date: Date): string {
+export function timeAgo(date: Date | string | number): string {
+  const parsedDate = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 'unknown';
+  }
+
   const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const seconds = Math.floor((now.getTime() - parsedDate.getTime()) / 1000);
 
   if (seconds < 60) {
     return 'just now';
