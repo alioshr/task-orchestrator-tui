@@ -55,13 +55,10 @@ export type {
   FeatureSearchParams,
   TaskSearchParams,
 } from './adapters/types';
-export { DirectAdapter } from './adapters/direct';
 export { McpHttpAdapter } from './adapters/mcp-http';
 export {
   createAdapterFromEnv,
-  getAdapterModeFromEnv,
   getMcpUrlFromEnv,
-  type AdapterMode,
 } from './adapters/factory';
 
 // Context

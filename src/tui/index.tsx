@@ -7,20 +7,12 @@ async function main() {
     process.exit(1);
   }
 
-  const [{ render }, React, { App }, { createAdapterFromEnv, getAdapterModeFromEnv }] = await Promise.all([
+  const [{ render }, React, { App }, { createAdapterFromEnv }] = await Promise.all([
     import('ink'),
     import('react'),
     import('./app'),
     import('../ui/adapters/factory'),
   ]);
-
-  const adapterMode = getAdapterModeFromEnv();
-
-  // Direct mode uses in-process repositories and requires local bootstrap.
-  if (adapterMode === 'direct') {
-    const { bootstrap } = await import('@allpepper/task-orchestrator');
-    bootstrap();
-  }
 
   const adapter = await createAdapterFromEnv();
 
