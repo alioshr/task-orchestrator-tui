@@ -50,6 +50,7 @@ The TUI uses MCP HTTP transport for all data operations.
 Environment variables:
 
 - `TASKS_MCP_URL`: MCP endpoint URL, default `http://127.0.0.1:3100/mcp`
+- `TASKS_MCP_DISCOVERY_PORTS`: optional comma-separated localhost ports for `/status` discovery
 
 Examples:
 
@@ -62,6 +63,8 @@ TASKS_MCP_URL=http://127.0.0.1:3100/mcp bun run tui
 ```
 
 If your data lives outside the default home, start the server with `TASK_ORCHESTRATOR_HOME` set to that directory.
+
+On startup, the TUI first tries orchestrator `/status` discovery and then falls back to direct MCP URL checks.
 
 ## Development
 
