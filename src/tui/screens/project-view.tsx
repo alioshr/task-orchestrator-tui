@@ -25,11 +25,10 @@ interface ProjectViewProps {
   onViewModeChange: (mode: 'features' | 'status' | 'feature-status') => void;
   onSelectTask: (taskId: string) => void;
   onSelectFeature: (featureId: string) => void;
-  onToggleBoard: () => void;
   onBack: () => void;
 }
 
-export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onToggleBoard, onBack }: ProjectViewProps) {
+export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesChange, expandedGroups, onExpandedGroupsChange, selectedIndex, onSelectedIndexChange, viewMode, onViewModeChange, onSelectTask, onSelectFeature, onBack }: ProjectViewProps) {
   const { adapter } = useAdapter();
   const { theme } = useTheme();
   const { project, features, unassignedTasks, taskCounts, statusGroupedRows, featureStatusGroupedRows, loading, error, refresh } = useProjectTree(projectId, expandedGroups);
@@ -110,9 +109,6 @@ export function ProjectView({ projectId, expandedFeatures, onExpandedFeaturesCha
     if (input === 'v') {
       const next = viewMode === 'features' ? 'status' : viewMode === 'status' ? 'feature-status' : 'features';
       onViewModeChange(next);
-    }
-    if (input === 'b') {
-      onToggleBoard();
     }
     if (input === 'n') {
       setMode('create-feature');

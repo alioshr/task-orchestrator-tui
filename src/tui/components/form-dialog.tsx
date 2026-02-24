@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import { useTheme } from '../../ui/context/theme-context';
+import { useFormActive } from '../../ui/context/form-active-context';
 
 export interface FormField {
   key: string;
@@ -76,6 +77,16 @@ export function FormDialog({
   isActive = true,
 }: FormDialogProps) {
   const { theme } = useTheme();
+  const { register } = useFormActive();
+  const { stdout } = useStdout();
+  const terminalHeight = stdout?.rows ?? 24;
+
+  // Register as active form so global shortcuts are suppressed
+  useEffect(() => {
+    if (!isActive) return;
+    const unregister = register();
+    return unregister;
+  }, [isActive, register]);
 
   const initialValues = useMemo(() => {
     const values: Record<string, string> = {};
@@ -259,7 +270,7 @@ export function FormDialog({
   }, { isActive });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} paddingY={0} marginY={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.highlight} paddingX={1} paddingY={0} marginY={1} height={terminalHeight - 4} overflowY="hidden">
       <Text bold>{title}</Text>
       {description ? <Text dimColor>{description}</Text> : null}
       {fields.map((field, index) => {

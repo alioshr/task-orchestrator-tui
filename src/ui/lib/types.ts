@@ -61,34 +61,6 @@ export interface FeatureWithTasks extends Feature {
 }
 
 /**
- * Kanban board task with optional feature label
- */
-export interface BoardTask extends Task {
-  featureName?: string;
-}
-
-/**
- * Kanban board card definition
- */
-export interface BoardCard {
-  id: string;
-  title: string;
-  featureName: string | null;
-  priority: Priority;
-  task: BoardTask;
-}
-
-/**
- * Kanban board column definition
- */
-export interface BoardColumn {
-  id: string;
-  title: string;
-  status: string;
-  tasks: BoardTask[];
-}
-
-/**
  * Search result types
  */
 export interface SearchResults {
@@ -137,20 +109,3 @@ export interface FeatureOverview {
   };
 }
 
-/**
- * Feature card for the feature-based Kanban board
- */
-export interface BoardFeature extends Feature {
-  tasks: Task[];
-  taskCounts: { total: number; completed: number };
-}
-
-/**
- * Column in the feature-based Kanban board
- */
-export interface FeatureBoardColumn {
-  id: string;
-  title: string;
-  status: string;
-  features: BoardFeature[];
-}
