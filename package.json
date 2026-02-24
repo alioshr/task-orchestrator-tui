@@ -1,7 +1,7 @@
 {
   "name": "@allpepper/task-orchestrator-tui",
   "version": "3.1.0",
-  "description": "Terminal UI for task orchestration - Kanban boards, tree views, and task management",
+  "description": "Terminal UI for task orchestration - tree views and task management",
   "type": "module",
   "bin": {
     "tasks": "src/tui/index.tsx"
@@ -23,7 +23,6 @@
     "cli",
     "tui",
     "task-manager",
-    "kanban",
     "ink",
     "react",
     "bun"
@@ -45,6 +44,7 @@
     "prepublishOnly": "bun test"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@allpepper/task-orchestrator": "^3.1.1",
     "@inkjs/ui": "^2.0.0",
     "ink": "^6.6.0",

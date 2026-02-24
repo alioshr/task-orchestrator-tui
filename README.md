@@ -43,6 +43,28 @@ Or directly:
 bun run src/tui/index.tsx
 ```
 
+### Adapter Modes
+
+The TUI supports two data adapter modes:
+
+- `mcp-http` (default): remote MCP tool calls via `McpHttpAdapter`
+- `direct`: in-process repository access via `DirectAdapter`
+
+Environment variables:
+
+- `TASKS_ADAPTER`: `direct` or `mcp-http`
+- `TASKS_MCP_URL`: MCP endpoint URL, default `http://127.0.0.1:3100/mcp`
+
+Examples:
+
+```bash
+# Start orchestrator MCP server over HTTP
+bunx @allpepper/task-orchestrator --http
+
+# Run TUI against MCP HTTP
+TASKS_ADAPTER=mcp-http TASKS_MCP_URL=http://127.0.0.1:3100/mcp bun run tui
+```
+
 ## Development
 
 Type checking:
@@ -59,15 +81,7 @@ bun test
 
 ## Dependencies
 
-This package depends on the core `task-orchestrator-bun` package for domain logic, repositories, and database access.
-
-The relationship is managed through a file: dependency in package.json:
-
-```json
-"dependencies": {
-  "task-orchestrator-bun": "file:../task-orchestrator-bun"
-}
-```
+The TUI keeps a local direct adapter for fallback and development, and also includes an MCP client transport for remote orchestration over HTTP.
 
 ## Key Features
 
@@ -75,5 +89,5 @@ The relationship is managed through a file: dependency in package.json:
 - Status badges with theme support
 - Data hooks for efficient data fetching
 - Direct adapter for in-process data access
+- MCP HTTP adapter for remote data access through MCP tools
 - Support for dark and light themes
-

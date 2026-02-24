@@ -18,7 +18,6 @@ export {
   type Shortcut,
   type TreeNode,
   type FeatureWithTasks,
-  type BoardColumn,
   type SearchResults,
   type DependencyInfo,
   type ProjectOverview,
@@ -57,6 +56,13 @@ export type {
   TaskSearchParams,
 } from './adapters/types';
 export { DirectAdapter } from './adapters/direct';
+export { McpHttpAdapter } from './adapters/mcp-http';
+export {
+  createAdapterFromEnv,
+  getAdapterModeFromEnv,
+  getMcpUrlFromEnv,
+  type AdapterMode,
+} from './adapters/factory';
 
 // Context
 export { ThemeProvider, useTheme } from './context/theme-context';

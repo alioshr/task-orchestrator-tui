@@ -1,30 +1,48 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ThemeProvider } from '../ui/context/theme-context';
 import { AdapterProvider } from '../ui/context/adapter-context';
-import { DirectAdapter } from '../ui/adapters/direct';
+import { FormActiveProvider, useFormActive } from '../ui/context/form-active-context';
+import type { DataAdapter } from '../ui/adapters/types';
 import { Header } from './components/header';
 import { Footer } from './components/footer';
 import { Dashboard } from './screens/dashboard';
 import { ProjectView } from './screens/project-view';
 import { TaskDetail } from './screens/task-detail';
-import { KanbanView } from './screens/kanban-view';
+
 import { FeatureDetail } from './screens/feature-detail';
 import { ProjectDetail } from './screens/project-detail';
 import { SearchScreen } from './screens/search';
 
-export function App() {
-  // Setup
+interface AppProps {
+  adapter: DataAdapter;
+}
+
+export function App({ adapter }: AppProps) {
+  const stableAdapter = useMemo(() => adapter, [adapter]);
+
+  return (
+    <ThemeProvider>
+      <AdapterProvider adapter={stableAdapter}>
+        <FormActiveProvider>
+          <AppInner />
+        </FormActiveProvider>
+      </AdapterProvider>
+    </ThemeProvider>
+  );
+}
+
+function AppInner() {
   const { exit } = useApp();
-  const adapter = useMemo(() => new DirectAdapter(), []);
+  const { isFormActive } = useFormActive();
 
   // Navigation state (simple for now - just track current screen)
-  const [screen, setScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'kanban' | 'feature' | 'search'>('dashboard');
-  const [searchReturnScreen, setSearchReturnScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'kanban' | 'feature'>('dashboard');
+  const [screen, setScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'feature' | 'search'>('dashboard');
+  const [searchReturnScreen, setSearchReturnScreen] = useState<'dashboard' | 'project' | 'project-detail' | 'task' | 'feature'>('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [featureId, setFeatureId] = useState<string | null>(null);
-  const [taskOriginScreen, setTaskOriginScreen] = useState<'project' | 'kanban' | 'feature'>('project');
+  const [taskOriginScreen, setTaskOriginScreen] = useState<'project' | 'feature'>('project');
 
   // View state persistence
   // Dashboard state
@@ -36,29 +54,19 @@ export function App() {
   const [projectSelectedIndex, setProjectSelectedIndex] = useState(0);
   const [projectViewMode, setProjectViewMode] = useState<'features' | 'status' | 'feature-status'>('status');
 
-  // KanbanView state
-  const [kanbanActiveColumnIndex, setKanbanActiveColumnIndex] = useState(0);
-  const [kanbanSelectedFeatureIndex, setKanbanSelectedFeatureIndex] = useState(0);
-  const [kanbanExpandedFeatureId, setKanbanExpandedFeatureId] = useState<string | null>(null);
-  const [kanbanSelectedTaskIndex, setKanbanSelectedTaskIndex] = useState(-1);
-  const [kanbanActiveStatuses, setKanbanActiveStatuses] = useState<Set<string>>(new Set());
-  const handleKanbanActiveStatusesChange = useCallback((statuses: Set<string>) => {
-    setKanbanActiveStatuses(statuses);
-  }, []);
-
-  // Global keyboard handling
+  // Global keyboard handling - disabled when a form is active
   useInput((input, key) => {
     if (input === 'q') {
       exit();
     }
     if (input === '/') {
       if (screen !== 'search') {
-        setSearchReturnScreen(screen as 'dashboard' | 'project' | 'task' | 'kanban' | 'feature');
+        setSearchReturnScreen(screen as 'dashboard' | 'project' | 'task' | 'feature');
         setScreen('search');
       }
       return;
     }
-  });
+  }, { isActive: !isFormActive });
 
   // Compute breadcrumbs based on current screen
   const breadcrumbs = useMemo(() => {
@@ -73,8 +81,6 @@ export function App() {
         return ['Dashboard', 'Project', 'Feature'];
       case 'task':
         return ['Dashboard', 'Project', 'Task'];
-      case 'kanban':
-        return ['Dashboard', 'Project', 'Board'];
       case 'search':
         return ['Search'];
       default:
@@ -129,28 +135,9 @@ export function App() {
               { key: 't', label: 'New Task' },
               { key: 'f', label: 'Feature Detail' },
               { key: 'v', label: 'Toggle View' },
-              { key: 'b', label: 'Board View' },
               { key: 'r', label: 'Refresh' },
               { key: 'h/Esc', label: 'Back' },
             ]
-            : []),
-          ...(screen === 'kanban'
-            ? kanbanExpandedFeatureId
-              ? [
-                { key: 'j/k', label: 'Tasks' },
-                { key: 'Enter', label: 'Open Task' },
-                { key: 'Esc/h', label: 'Collapse' },
-                { key: 'r', label: 'Refresh' },
-              ]
-              : [
-                { key: 'h/l', label: 'Columns' },
-                { key: 'j/k', label: 'Features' },
-                { key: 'Enter', label: 'Expand' },
-                { key: 'm', label: 'Move Feature' },
-                { key: 'f', label: 'Filter' },
-                { key: 'b', label: 'Tree View' },
-                { key: 'Esc', label: 'Back' },
-              ]
             : []),
           ...(screen === 'task'
             ? [
@@ -162,8 +149,6 @@ export function App() {
         ];
 
   return (
-    <ThemeProvider>
-      <AdapterProvider adapter={adapter}>
         <Box flexDirection="column" width="100%">
           <Header breadcrumbs={breadcrumbs} />
           <Box flexGrow={1} flexDirection="column">
@@ -220,33 +205,6 @@ export function App() {
                   setFeatureId(id);
                   setScreen('feature');
                 }}
-                onToggleBoard={() => {
-                  setScreen('kanban');
-                }}
-                onBack={() => {
-                  setScreen('dashboard');
-                  setProjectId(null);
-                }}
-              />
-            )}
-            {screen === 'kanban' && projectId && (
-              <KanbanView
-                projectId={projectId}
-                activeColumnIndex={kanbanActiveColumnIndex}
-                onActiveColumnIndexChange={setKanbanActiveColumnIndex}
-                selectedFeatureIndex={kanbanSelectedFeatureIndex}
-                onSelectedFeatureIndexChange={setKanbanSelectedFeatureIndex}
-                expandedFeatureId={kanbanExpandedFeatureId}
-                onExpandedFeatureIdChange={setKanbanExpandedFeatureId}
-                selectedTaskIndex={kanbanSelectedTaskIndex}
-                onSelectedTaskIndexChange={setKanbanSelectedTaskIndex}
-                activeStatuses={kanbanActiveStatuses}
-                onActiveStatusesChange={handleKanbanActiveStatusesChange}
-                onSelectTask={(id) => {
-                  setTaskOriginScreen('kanban');
-                  setTaskId(id);
-                  setScreen('task');
-                }}
                 onBack={() => {
                   setScreen('dashboard');
                   setProjectId(null);
@@ -261,7 +219,7 @@ export function App() {
                   // Stay on task screen, just change taskId
                 }}
                 onBack={() => {
-                  setScreen(taskOriginScreen === 'kanban' ? 'kanban' : taskOriginScreen === 'feature' ? 'feature' : 'project');
+                  setScreen(taskOriginScreen === 'feature' ? 'feature' : 'project');
                   setTaskId(null);
                 }}
               />
@@ -303,7 +261,5 @@ export function App() {
           </Box>
           <Footer shortcuts={shortcuts} />
         </Box>
-      </AdapterProvider>
-    </ThemeProvider>
   );
 }
