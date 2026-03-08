@@ -1,6 +1,6 @@
 import type { DataAdapter } from './types';
 
-const DEFAULT_MCP_URL = 'http://127.0.0.1:3100/mcp';
+const DEFAULT_MCP_URL = 'http://127.0.0.1:6100/mcp';
 
 export function getMcpUrlFromEnv(
   env: Record<string, string | undefined> = process.env

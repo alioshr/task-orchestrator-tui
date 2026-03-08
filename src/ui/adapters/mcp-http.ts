@@ -100,7 +100,7 @@ export class McpHttpAdapter implements DataAdapter {
     clientName?: string;
     clientVersion?: string;
   }) {
-    this.url = options?.url ?? 'http://127.0.0.1:3100/mcp';
+    this.url = options?.url ?? 'http://127.0.0.1:6100/mcp';
     this.clientName = options?.clientName ?? 'task-orchestrator-tui';
     this.clientVersion = options?.clientVersion ?? '3.1.0';
   }
